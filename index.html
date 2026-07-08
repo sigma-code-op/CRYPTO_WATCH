@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoWatch Pro - Advanced Global Market Terminal</title>
+    <!-- Tailwind CSS v4 -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- TradingView Lightweight Charts -->
+    <script src="https://unpkg.com/lightweight-charts@4.2.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        tr.active-row { background-color: rgba(14, 203, 129, 0.08) !important; border-left: 4px solid #0ecb81; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        .tf-btn.active, .filter-btn.active, .ind-btn.active, .ctype-btn.active { background-color: #0ecb81; color: #0b0e11; font-weight: bold; border-color: #0ecb81; }
+        .flash-green { animation: flashG 0.4s ease-out; }
+        .flash-red { animation: flashR 0.4s ease-out; }
+        @keyframes flashG { 0% { background-color: rgba(14, 203, 129, 0.2); } 100% { background-color: transparent; } }
+        @keyframes flashR { 0% { background-color: rgba(246, 70, 93, 0.2); } 100% { background-color: transparent; } }
+        @keyframes marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+        .marquee-track { animation: marquee 35s linear infinite; }
+        .marquee-track:hover { animation-play-state: paused; }
+        .status-dot { width: 6px; height: 6px; border-radius: 9999px; display: inline-block; }
+        .status-live { background: #0ecb81; box-shadow: 0 0 6px #0ecb81; }
+        .status-connecting { background: #e5b324; animation: pulseDot 1s ease-in-out infinite; }
+        .status-error { background: #f6465d; }
+        @keyframes pulseDot { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .depth-bar-bid { background: linear-gradient(to left, rgba(14,203,129,0.18), transparent); }
+        .depth-bar-ask { background: linear-gradient(to right, rgba(246,70,93,0.18), transparent); }
+        .toast-enter { animation: toastIn 0.25s ease-out; }
+        @keyframes toastIn { 0% { opacity: 0; transform: translateY(-8px); } 100% { opacity: 1; transform: translateY(0); } }
+        #chart-workspace:fullscreen, #chart-card:fullscreen { background: #181a20; padding: 16px; }
+    </style>
+</head>
+<body class="bg-[#0b0e11] text-gray-200 min-h-screen font-sans antialiased">
+
+    <div class="container mx-auto px-4 py-6 max-w-[1600px]">
+        <!-- Header -->
+        <header class="flex flex-col sm:flex-row justify-between items-center border-b border-gray-800 pb-4 mb-3 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white flex items-center gap-2 tracking-tight">
+                    🪙 CryptoWatch Pro <span class="text-[10px] tracking-widest bg-emerald-500/10 text-[#0ecb81] px-2 py-0.5 rounded font-bold uppercase border border-emerald-500/20">Enterprise Matrix Feed</span>
+                </h1>
+                <p class="text-gray-400 text-xs mt-0.5 flex items-center gap-3 flex-wrap">
+                    <span>Dual-channel WebSocket architecture syncing Spot &amp; Perpetual Futures engine configurations.</span>
+                </p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-3 text-[10px] font-mono font-bold bg-[#181a20] border border-gray-800 rounded px-3 py-1.5">
+                    <span class="flex items-center gap-1.5"><span id="dot-spot" class="status-dot status-connecting"></span> <span class="text-gray-400 uppercase">Spot</span> <span id="status-spot-text" class="text-gray-500">...</span></span>
+                    <span class="w-px h-3 bg-gray-700"></span>
+                    <span class="flex items-center gap-1.5"><span id="dot-futures" class="status-dot status-connecting"></span> <span class="text-gray-400 uppercase">Futures</span> <span id="status-futures-text" class="text-gray-500">...</span></span>
+                </div>
+                <div class="w-56">
+                    <input type="text" id="search-input" placeholder="Search Assets (e.g., BTC, SOL, PEPE)..." 
+                        class="w-full bg-[#181a20] border border-gray-800 rounded px-3 py-1.5 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81] transition-colors">
+                </div>
+            </div>
+        </header>
+
+        <!-- Top Movers Marquee -->
+        <div class="mb-6 bg-[#181a20] border border-gray-800 rounded-lg overflow-hidden relative h-9">
+            <div class="absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-[#181a20] to-transparent z-10 flex items-center pl-3">
+                <span class="text-[9px] font-bold uppercase text-gray-500 tracking-wider">Movers</span>
+            </div>
+            <div class="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-[#181a20] to-transparent z-10"></div>
+            <div id="mover-strip" class="flex items-center h-full whitespace-nowrap marquee-track pl-20 text-[11px] font-mono">
+                <span class="text-gray-500 px-4">Loading top movers...</span>
+            </div>
+        </div>
+
+        <!-- Main Terminal Grid Layout -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- LEFT: Price Board Controls & Grid -->
+            <div class="lg:col-span-5 bg-[#181a20] border border-gray-800 rounded-lg shadow-2xl overflow-hidden">
+                <div class="px-4 py-3 border-b border-gray-800 bg-[#1e222b] flex justify-between items-center flex-wrap gap-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Market Monitor Grid</span>
+                    <span id="grid-count" class="text-[10px] text-gray-500 font-mono"></span>
+                </div>
+
+                <!-- Tab Segment Filters -->
+                <div class="bg-[#14161c] border-b border-gray-800 p-2 flex items-center gap-1 flex-wrap">
+                    <button class="filter-btn text-[11px] px-3 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer active" data-filter="all">All</button>
+                    <button class="filter-btn text-[11px] px-3 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer" data-filter="spot">Spot</button>
+                    <button class="filter-btn text-[11px] px-3 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer" data-filter="futures">Futures</button>
+                    <button class="filter-btn text-[11px] px-3 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer" data-filter="gainers">▲ Gainers</button>
+                    <button class="filter-btn text-[11px] px-3 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer" data-filter="losers">▼ Losers</button>
+                    <button class="filter-btn text-[11px] px-3 py-1 rounded bg-gray-900 border border-gray-800/80 text-amber-500 hover:bg-gray-800/50 transition-all cursor-pointer" data-filter="watchlist">★ Watchlist</button>
+                </div>
+
+                <div id="loading" class="flex flex-col items-center justify-center py-32">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0ecb81] mb-3"></div>
+                    <p class="text-gray-400 text-xs tracking-wide">Syncing real-time market orderbooks...</p>
+                </div>
+
+                <div id="init-error" class="hidden flex flex-col items-center justify-center py-24 px-6 text-center gap-3">
+                    <span class="text-2xl">⚠️</span>
+                    <p class="text-[#f6465d] text-xs font-bold">Could not reach Binance market data.</p>
+                    <p class="text-gray-500 text-[11px]">This is usually a network/CORS block or a regional restriction. Retrying automatically...</p>
+                </div>
+
+                <div id="table-container" class="hidden overflow-x-auto max-h-[600px]">
+                    <table class="w-full text-left border-collapse whitespace-nowrap">
+                        <thead>
+                            <tr class="text-[11px] font-bold uppercase text-gray-400 border-b border-gray-800 bg-[#1e222b]/50 sticky top-0 z-20">
+                                <th class="py-3 px-4 w-10"></th>
+                                <th class="py-3 px-2">Market Index Asset</th>
+                                <th class="py-3 px-3 text-right">Last Price</th>
+                                <th class="py-3 px-3 text-right hidden md:table-cell">Volume</th>
+                                <th class="py-3 px-4 text-right">24h Chg%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="crypto-rows" class="divide-y divide-gray-800/40 text-xs cursor-pointer font-medium font-mono">
+                            <!-- Dynamic Content Allocation -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- RIGHT: Graphic Chart Space & Engine Controls -->
+            <div class="lg:col-span-7 flex flex-col gap-4">
+                
+                <!-- HUD Mini-Ticker Data Strip -->
+                <div class="bg-[#181a20] border border-gray-800 rounded-lg px-6 py-3 flex items-center justify-between shadow-xl flex-wrap gap-4">
+                    <div class="flex items-center gap-3">
+                        <div>
+                            <div class="flex items-baseline gap-1.5">
+                                <h2 id="chart-title" class="text-lg font-bold text-white tracking-tight">Select Asset</h2>
+                                <span id="chart-market-badge" class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded"></span>
+                                <button id="alert-bell" title="Add price alert" class="ml-1 text-gray-500 hover:text-amber-400 transition-colors cursor-pointer text-sm">🔔</button>
+                            </div>
+                            <p id="chart-ticker-sym" class="text-[10px] text-gray-400 uppercase tracking-wider flex items-center gap-1.5">OHL-V Candlestick Feed Matrix <span id="chart-feed-dot" class="status-dot status-connecting"></span></p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-5 text-right ml-auto flex-wrap">
+                        <div>
+                            <span class="text-[10px] text-gray-500 block uppercase font-bold">Index Price</span>
+                            <span id="hud-price" class="text-sm font-mono font-bold text-white">--</span>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-gray-500 block uppercase font-bold">24h Delta</span>
+                            <span id="hud-change" class="text-sm font-mono font-bold">--</span>
+                        </div>
+                        <div class="hidden sm:block">
+                            <span class="text-[10px] text-gray-500 block uppercase font-bold">24h High</span>
+                            <span id="hud-high" class="text-sm font-mono font-bold text-gray-300">--</span>
+                        </div>
+                        <div class="hidden sm:block">
+                            <span class="text-[10px] text-gray-500 block uppercase font-bold">24h Low</span>
+                            <span id="hud-low" class="text-sm font-mono font-bold text-gray-300">--</span>
+                        </div>
+                        <div class="hidden md:block">
+                            <span class="text-[10px] text-gray-500 block uppercase font-bold">24h Volume</span>
+                            <span id="hud-volume" class="text-sm font-mono font-bold text-gray-300">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Comprehensive Timeframe & Technical Analysis Toolbars -->
+                <div class="bg-[#181a20] border border-gray-800 rounded-lg p-2 flex flex-wrap items-center justify-between gap-3 shadow-xl">
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] uppercase font-bold text-gray-500 px-2 tracking-wider">Interval:</span>
+                        <button class="tf-btn text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer" data-tf="1m">1m</button>
+                        <button class="tf-btn text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer" data-tf="5m">5m</button>
+                        <button class="tf-btn text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer active" data-tf="15m">15m</button>
+                        <button class="tf-btn text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer" data-tf="1h">1H</button>
+                        <button class="tf-btn text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer" data-tf="4h">4H</button>
+                        <button class="tf-btn text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer" data-tf="1d">1D</button>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] uppercase font-bold text-gray-500 px-2 tracking-wider">Type:</span>
+                        <button class="ctype-btn text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 transition-all cursor-pointer active" data-ctype="candles">Candles</button>
+                        <button class="ctype-btn text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 transition-all cursor-pointer" data-ctype="line">Line</button>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] uppercase font-bold text-gray-500 px-2 tracking-wider">Overlays:</span>
+                        <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 active transition-all cursor-pointer" data-ind="ma7">MA(7)</button>
+                        <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="ma25">MA(25)</button>
+                        <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="bb">BB(20,2)</button>
+                        <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="rsi">RSI(14)</button>
+                    </div>
+
+                    <button id="fullscreen-btn" title="Fullscreen chart" class="text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer ml-auto">⛶ Fullscreen</button>
+                </div>
+
+                <!-- Main Chart Layout Card -->
+                <div id="chart-card" class="bg-[#181a20] border border-gray-800 rounded-lg p-4 shadow-2xl relative">
+                    <!-- Overlay Legend Block -->
+                    <div id="ohlv-legend" class="absolute left-6 top-6 z-10 font-mono text-[11px] text-gray-400 space-x-2 pointer-events-none hidden bg-[#181a20]/90 px-3 py-1 rounded backdrop-blur-md border border-gray-800">
+                        <span class="text-gray-400 font-bold" id="legend-sym">--</span>
+                        <span>O:<span id="leg-o" class="text-white">--</span></span>
+                        <span>H:<span id="leg-h" class="text-white">--</span></span>
+                        <span>L:<span id="leg-l" class="text-white">--</span></span>
+                        <span>C:<span id="leg-c" class="text-white">--</span></span>
+                        <span class="hidden sm:inline">V:<span id="leg-v" class="text-gray-300">--</span></span>
+                    </div>
+
+                    <!-- Chart Div -->
+                    <div id="chart-workspace" class="w-full h-[400px] bg-[#181a20] rounded flex items-center justify-center text-gray-500 text-xs border border-gray-900 overflow-hidden select-none">
+                        Select any asset index token to link live chart tracking frames.
+                    </div>
+
+                    <!-- RSI Sub-panel -->
+                    <div id="rsi-panel" class="hidden mt-2">
+                        <div class="text-[9px] uppercase font-bold text-gray-500 tracking-wider mb-1 px-1">RSI (14)</div>
+                        <div id="rsi-workspace" class="w-full h-[110px] bg-[#181a20] rounded border border-gray-900 overflow-hidden"></div>
+                    </div>
+                </div>
+
+                <!-- Order Book + Trades + Alerts -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <!-- Order Book -->
+                    <div class="bg-[#181a20] border border-gray-800 rounded-lg shadow-xl overflow-hidden">
+                        <div class="px-3 py-2 border-b border-gray-800 bg-[#1e222b] text-[10px] font-bold uppercase tracking-wider text-gray-400 flex justify-between items-center">
+                            <span>Order Book</span>
+                            <span id="depth-status" class="status-dot status-connecting"></span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1 px-2 pt-2 text-[9px] font-bold uppercase text-gray-500">
+                            <span>Bids</span><span class="text-right">Asks</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-1 px-2 pb-2 font-mono text-[10px]">
+                            <div id="book-bids" class="space-y-[2px]"></div>
+                            <div id="book-asks" class="space-y-[2px]"></div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Trades -->
+                    <div class="bg-[#181a20] border border-gray-800 rounded-lg shadow-xl overflow-hidden">
+                        <div class="px-3 py-2 border-b border-gray-800 bg-[#1e222b] text-[10px] font-bold uppercase tracking-wider text-gray-400 flex justify-between items-center">
+                            <span>Recent Trades</span>
+                            <span id="trades-status" class="status-dot status-connecting"></span>
+                        </div>
+                        <div class="flex justify-between px-3 pt-2 text-[9px] font-bold uppercase text-gray-500">
+                            <span>Price</span><span>Qty</span><span>Time</span>
+                        </div>
+                        <div id="trades-list" class="px-3 pb-2 pt-1 font-mono text-[10px] max-h-[220px] overflow-y-auto space-y-[2px]"></div>
+                    </div>
+
+                    <!-- Price Alerts -->
+                    <div class="bg-[#181a20] border border-gray-800 rounded-lg shadow-xl overflow-hidden flex flex-col">
+                        <div class="px-3 py-2 border-b border-gray-800 bg-[#1e222b] text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                            Price Alerts
+                        </div>
+                        <div class="p-3 flex gap-2">
+                            <select id="alert-direction" class="bg-gray-900 border border-gray-800 rounded text-[10px] px-1.5 py-1 text-gray-300">
+                                <option value="above">Above</option>
+                                <option value="below">Below</option>
+                            </select>
+                            <input id="alert-price-input" type="number" step="any" placeholder="Target price" class="flex-1 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81]">
+                            <button id="alert-add-btn" class="text-[11px] px-2.5 py-1 rounded bg-[#0ecb81] text-[#0b0e11] font-bold hover:opacity-90 transition-all cursor-pointer">Add</button>
+                        </div>
+                        <div id="alerts-list" class="px-3 pb-3 font-mono text-[10px] space-y-1.5 overflow-y-auto max-h-[160px]">
+                            <p class="text-gray-600 text-[10px]">No alerts set for this asset.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-2 items-end"></div>
+
+<script>
+    const cryptoRows = document.getElementById('crypto-rows');
+    const loading = document.getElementById('loading');
+    const initError = document.getElementById('init-error');
+    const tableContainer = document.getElementById('table-container');
+    const searchInput = document.getElementById('search-input');
+    const container = document.getElementById('chart-workspace');
+    const ohlvLegend = document.getElementById('ohlv-legend');
+    const gridCount = document.getElementById('grid-count');
+    
+    let globalMarketList = []; 
+    let marketMap = {}; 
+    let selectedAsset = null; 
+    let currentInterval = '15m'; 
+    let currentFilter = 'all';
+    let currentChartType = 'candles';
+    let watchlist = safeJSONParse(localStorage.getItem('cw_watchlist'), []);
+    let priceAlerts = safeJSONParse(localStorage.getItem('cw_alerts'), {}); // { assetId: [{id,direction,target,triggered}] }
+    let lastSelection = safeJSONParse(localStorage.getItem('cw_last_selection'), null);
+
+    function safeJSONParse(str, fallback) {
+        try {
+            const val = JSON.parse(str);
+            return val === null || val === undefined ? fallback : val;
+        } catch (e) { return fallback; }
+    }
+
+    // Chart Series Objects
+    let chartInstance = null;
+    let candlestickSeries = null;
+    let lineSeries = null;
+    let volumeSeries = null;
+    let ma7Series = null;
+    let ma25Series = null;
+    let bbUpperSeries = null;
+    let bbBasisSeries = null;
+    let bbLowerSeries = null;
+    let rsiChartInstance = null;
+    let rsiLineSeries = null;
+    let syncingRange = false;
+
+    let resizeObserver = null;
+    let chartSocket = null;
+    let spotTickerSocket = null; 
+    let futuresTickerSocket = null;
+    let depthSocket = null;
+    let tradesSocket = null;
+    let cachedCandlesArray = [];
+
+    // Indicator Visibilities
+    const activeIndicators = { ma7: true, ma25: false, bb: false, rsi: false };
+
+    // ---------- Socket watchdog (heartbeat) ----------
+    // Some WebSocket connections die silently — no close/error event ever fires (a proxy or
+    // NAT idle-timeout just drops the pipe). This is the actual cause of a feed looking "frozen
+    // until refresh": our reconnect logic only runs off onclose/onerror, so a socket that goes
+    // silent without one of those events never gets replaced. The watchdog below tracks the
+    // last time each socket produced any message and forces a hard reconnect if a socket goes
+    // quiet for longer than it reasonably should. This affects kline streams most visibly
+    // because they only emit on trades, so a stalled futures connection can look "live" (open)
+    // while producing nothing.
+    const socketWatchdog = {
+        spot:    { lastMsg: 0, threshold: 20000 },
+        futures: { lastMsg: 0, threshold: 20000 },
+        chart:   { lastMsg: 0, threshold: 25000 },
+        depth:   { lastMsg: 0, threshold: 15000 },
+        trades:  { lastMsg: 0, threshold: 60000 },
+    };
+    function touchWatchdog(key) { socketWatchdog[key].lastMsg = Date.now(); }
+    function resetWatchdog(key) { socketWatchdog[key].lastMsg = Date.now(); }
+
+    setInterval(() => {
+        const now = Date.now();
+        const checks = [
+            [spotTickerSocket, 'spot'],
+            [futuresTickerSocket, 'futures'],
+            [chartSocket, 'chart'],
+            [depthSocket, 'depth'],
+            [tradesSocket, 'trades'],
+        ];
+        checks.forEach(([sock, key]) => {
+            const w = socketWatchdog[key];
+            if (!sock || sock.readyState !== WebSocket.OPEN || !w.lastMsg) return;
+            if (now - w.lastMsg > w.threshold) {
+                console.warn(`${key} stream went quiet for ${Math.round((now - w.lastMsg) / 1000)}s — forcing reconnect.`);
+                w.lastMsg = 0; // avoid re-triggering while the reconnect is in flight
+                try { sock.close(); } catch (e) {}
+            }
+        });
+    }, 8000);
+
+    // Reconnection handles + backoff tracking
+    let globalReconnectTimeout = null;
+    let chartReconnectTimeout = null;
+    let depthReconnectTimeout = null;
+    let tradesReconnectTimeout = null;
+    let spotBackoff = 3000, futuresBackoff = 3000;
+
+    // Guards against race conditions when rapidly switching assets/intervals
+    let chartRequestToken = 0;
+
+    function setStatus(market, state, label) {
+        const dot = document.getElementById(`dot-${market}`);
+        const text = document.getElementById(`status-${market}-text`);
+        if (!dot) return;
+        dot.className = `status-dot status-${state}`;
+        if (text) text.innerText = label || state;
+    }
+
+    function showToast(message, tone = 'info') {
+        const el = document.createElement('div');
+        const toneClass = tone === 'success' ? 'border-[#0ecb81] text-[#0ecb81]' : tone === 'error' ? 'border-[#f6465d] text-[#f6465d]' : 'border-gray-700 text-gray-200';
+        el.className = `toast-enter bg-[#181a20] border ${toneClass} rounded-lg px-4 py-2.5 text-xs font-mono shadow-2xl max-w-xs`;
+        el.innerText = message;
+        document.getElementById('toast-container').appendChild(el);
+        setTimeout(() => { el.style.transition = 'opacity 0.4s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 400); }, 4500);
+    }
+
+    function formatCompact(num) {
+        if (num === null || num === undefined || isNaN(num)) return '--';
+        const abs = Math.abs(num);
+        if (abs >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+        if (abs >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+        if (abs >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+        return num.toFixed(2);
+    }
+
+    function priceFmt(price) {
+        return price < 1 ? { minimumFractionDigits: 4, maximumFractionDigits: 6 } : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+    }
+
+    // ---------- Bootstrapping market data ----------
+    // Spot and futures are fetched fully independently (each with its own try/catch) so a
+    // network/CORS/regional failure on ONE leg — most commonly the futures API — can never
+    // take down the other. Previously both fetches shared a single Promise.all with no inner
+    // catch, so any futures-side network error rejected the whole thing and produced
+    // "Could not reach Binance market data" even when spot was reachable. That was the bug.
+    async function fetchSpotSnapshot() {
+        try {
+            const res = await fetchWithTimeout('https://api.binance.com/api/v3/ticker/24hr');
+            return await parseBinanceJSON(res, 'Spot');
+        } catch (err) {
+            console.warn('Spot 24hr ticker unavailable:', err.message);
+            setStatus('spot', 'error', 'Unavailable');
+            return null; // null = hard failure, distinct from [] = fetched but empty
+        }
+    }
+
+    async function fetchFuturesSnapshot() {
+        try {
+            const res = await fetchWithTimeout('https://fapi.binance.com/fapi/v1/ticker/24hr');
+            return await parseBinanceJSON(res, 'Futures');
+        } catch (err) {
+            console.warn('Futures 24hr ticker unavailable:', err.message);
+            setStatus('futures', 'error', 'Unavailable');
+            return null;
+        }
+    }
+
+    async function initMasterTerminalData() {
+        try {
+            // Both legs run in parallel, but each is caught inside its own function above —
+            // one rejecting never affects the other.
+            const [spotRaw, futuresRaw] = await Promise.all([
+                fetchSpotSnapshot(),
+                fetchFuturesSnapshot()
+            ]);
+
+            if (spotRaw === null && futuresRaw === null) {
+                throw new Error('Both spot and futures endpoints were unreachable.');
+            }
+            if (spotRaw === null) {
+                showToast('Spot market data unavailable right now. Showing futures only.', 'error');
+            }
+            if (futuresRaw === null) {
+                showToast('Futures market data unavailable right now. Spot data still live.', 'error');
+            }
+
+            marketMap = {};
+
+            const processData = (arr, isFutures) => {
+                if (!Array.isArray(arr)) return;
+                arr.filter(item => item && typeof item.symbol === 'string' && item.symbol.endsWith('USDT')).forEach(item => {
+                    const idKey = `${item.symbol.toUpperCase()}_${isFutures ? 'F' : 'S'}`;
+                    marketMap[idKey] = {
+                        id: idKey,
+                        symbol: item.symbol.toUpperCase(),
+                        baseAsset: item.symbol.toUpperCase().replace('USDT', ''),
+                        price: parseFloat(item.lastPrice) || 0,
+                        changePct: parseFloat(item.priceChangePercent) || 0,
+                        high: parseFloat(item.highPrice) || 0,
+                        low: parseFloat(item.lowPrice) || 0,
+                        volume: parseFloat(item.quoteVolume) || 0,
+                        isFutures: isFutures,
+                        domId: `row_${idKey.replace(/[@#]/g, '_')}`
+                    };
+                });
+            };
+
+            if (spotRaw) processData(spotRaw, false);
+            if (futuresRaw) processData(futuresRaw, true);
+
+            if (Object.keys(marketMap).length === 0) {
+                throw new Error('No market symbols were returned.');
+            }
+
+            refreshArrayDataList();
+            renderTableHTMLStructure();
+            updateMoverStrip();
+            setInterval(updateMoverStrip, 15000);
+
+            loading.classList.add('hidden');
+            initError.classList.add('hidden');
+            tableContainer.classList.remove('hidden');
+
+            if (globalMarketList.length > 0 && !selectedAsset) {
+                let defaultAsset = null;
+                if (lastSelection && marketMap[lastSelection.id]) {
+                    defaultAsset = marketMap[lastSelection.id];
+                    if (lastSelection.interval) currentInterval = lastSelection.interval;
+                    syncIntervalButtons();
+                } else {
+                    defaultAsset = globalMarketList.find(a => a.symbol === 'BTCUSDT' && !a.isFutures) || globalMarketList[0];
+                }
+                selectAsset(defaultAsset);
+            }
+
+            connectGlobalPriceTickerStreams();
+
+        } catch (error) {
+            console.error("Initialization pipeline failed, retrying in 5s...", error);
+            loading.classList.add('hidden');
+            initError.classList.remove('hidden');
+            setStatus('spot', 'error', 'Retrying');
+            setStatus('futures', 'error', 'Retrying');
+            setTimeout(initMasterTerminalData, 5000);
+        }
+    }
+
+    async function fetchWithTimeout(url, ms = 10000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), ms);
+        try {
+            return await fetch(url, { signal: controller.signal });
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
+    async function parseBinanceJSON(res, label) {
+        if (!res.ok) throw new Error(`${label} API responded with status ${res.status}`);
+        const data = await res.json();
+        if (data && !Array.isArray(data) && data.code) {
+            throw new Error(`${label} API error ${data.code}: ${data.msg || 'unknown error'}`);
+        }
+        if (!Array.isArray(data)) throw new Error(`${label} API returned an unexpected payload.`);
+        return data;
+    }
+
+    function syncIntervalButtons() {
+        document.querySelectorAll('.tf-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-tf') === currentInterval);
+        });
+    }
+
+    function refreshArrayDataList() {
+        globalMarketList = Object.values(marketMap).sort((a, b) => b.volume - a.volume);
+    }
+
+    function updateMoverStrip() {
+        if (globalMarketList.length === 0) return;
+        const sorted = [...globalMarketList].filter(a => a.volume > 1000000).sort((a, b) => b.changePct - a.changePct);
+        const gainers = sorted.slice(0, 6);
+        const losers = sorted.slice(-6).reverse();
+        const items = [...gainers, ...losers];
+        const strip = document.getElementById('mover-strip');
+        const buildChip = (item) => {
+            const color = item.changePct >= 0 ? 'text-[#0ecb81]' : 'text-[#f6465d]';
+            const tag = item.isFutures ? 'Perp' : 'Spot';
+            return `<span class="inline-flex items-center gap-1.5 px-4"><span class="text-gray-300 font-bold">${item.baseAsset}</span><span class="text-gray-600 text-[9px]">${tag}</span><span class="${color} font-bold">${item.changePct >= 0 ? '+' : ''}${item.changePct.toFixed(2)}%</span></span>`;
+        };
+        const htmlChunk = items.map(buildChip).join('');
+        strip.innerHTML = htmlChunk + htmlChunk; // duplicate for seamless marquee loop
+        gridCount.innerText = `${globalMarketList.length} markets tracked`;
+    }
+
+    function renderTableHTMLStructure() {
+        const term = searchInput.value.toUpperCase().trim();
+        cryptoRows.innerHTML = '';
+
+        let filtered = globalMarketList.filter(item => 
+            item.symbol.includes(term) || item.baseAsset.includes(term)
+        );
+
+        if (currentFilter === 'spot') filtered = filtered.filter(item => !item.isFutures);
+        if (currentFilter === 'futures') filtered = filtered.filter(item => item.isFutures);
+        if (currentFilter === 'watchlist') filtered = filtered.filter(item => watchlist.includes(item.id));
+        if (currentFilter === 'gainers') filtered = [...filtered].filter(i => i.volume > 500000).sort((a, b) => b.changePct - a.changePct);
+        if (currentFilter === 'losers') filtered = [...filtered].filter(i => i.volume > 500000).sort((a, b) => a.changePct - b.changePct);
+
+        filtered.slice(0, 100).forEach(item => {
+            const row = document.createElement('tr');
+            row.id = item.domId;
+            row.className = `hover:bg-gray-800/40 transition-colors border-b border-gray-800/30 ${selectedAsset && selectedAsset.id === item.id ? 'active-row' : ''}`;
+            
+            const badgeColor = item.isFutures ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20';
+            const isStarred = watchlist.includes(item.id);
+
+            row.innerHTML = `
+                <td class="py-3 px-4 text-center star-cell cursor-pointer text-sm select-none ${isStarred ? 'text-amber-400' : 'text-gray-600 hover:text-gray-400'}">
+                    ${isStarred ? '★' : '☆'}
+                </td>
+                <td class="py-3 px-2 main-click-zone">
+                    <div class="flex items-center gap-2">
+                        <span class="font-bold text-white tracking-wide">${item.baseAsset}</span>
+                        <span class="text-[9px] font-mono tracking-wider font-bold px-1.5 py-0.5 rounded uppercase ${badgeColor}">
+                            ${item.isFutures ? 'Perp' : 'Spot'}
+                        </span>
+                    </div>
+                </td>
+                <td class="py-3 px-3 text-right text-gray-100 price-cell main-click-zone">$${item.price.toLocaleString(undefined, priceFmt(item.price))}</td>
+                <td class="py-3 px-3 text-right text-gray-500 volume-cell main-click-zone hidden md:table-cell">$${formatCompact(item.volume)}</td>
+                <td class="py-3 px-4 text-right font-bold change-cell main-click-zone ${item.changePct >= 0 ? 'text-[#0ecb81]' : 'text-[#f6465d]'}">
+                    ${item.changePct >= 0 ? '+' : ''}${item.changePct.toFixed(2)}%
+                </td>
+            `;
+
+            // Separate Watchlist click bounds from selection row mechanism
+            row.querySelector('.star-cell').addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleWatchlistAsset(item.id, e.target);
+            });
+
+            row.querySelectorAll('.main-click-zone').forEach(cell => {
+                cell.addEventListener('click', () => selectAsset(item));
+            });
+
+            cryptoRows.appendChild(row);
+        });
+
+        if (filtered.length === 0) {
+            cryptoRows.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-gray-600 text-[11px]">No assets match this filter.</td></tr>`;
+        }
+    }
+
+    function toggleWatchlistAsset(assetId, element) {
+        const idx = watchlist.indexOf(assetId);
+        if (idx > -1) {
+            watchlist.splice(idx, 1);
+            element.innerText = '☆';
+            element.className = "py-3 px-4 text-center star-cell cursor-pointer text-sm select-none text-gray-600 hover:text-gray-400";
+        } else {
+            watchlist.push(assetId);
+            element.innerText = '★';
+            element.className = "py-3 px-4 text-center star-cell cursor-pointer text-sm select-none text-amber-400";
+        }
+        localStorage.setItem('cw_watchlist', JSON.stringify(watchlist));
+        if (currentFilter === 'watchlist') renderTableHTMLStructure();
+    }
+
+    // ---------- Global ticker websocket streams (independent spot / futures) ----------
+    function connectGlobalPriceTickerStreams() {
+        connectSpotTicker();
+        connectFuturesTicker();
+    }
+
+    function connectSpotTicker() {
+        if (spotTickerSocket) { spotTickerSocket.onclose = null; try { spotTickerSocket.close(); } catch (e) {} }
+        setStatus('spot', 'connecting', 'Connecting');
+        try {
+            spotTickerSocket = new WebSocket('wss://stream.binance.com:9443/ws/!ticker@arr');
+        } catch (e) {
+            setStatus('spot', 'error', 'Failed');
+            scheduleSpotReconnect();
+            return;
+        }
+        spotTickerSocket.onopen = () => { setStatus('spot', 'live', 'Live'); spotBackoff = 3000; resetWatchdog('spot'); };
+        spotTickerSocket.onmessage = (event) => {
+            touchWatchdog('spot');
+            let data;
+            try { data = JSON.parse(event.data); } catch (e) { return; }
+            if (!Array.isArray(data)) return;
+            data.forEach(tick => {
+                const idKey = `${tick.s.toUpperCase()}_S`;
+                if (marketMap[idKey]) {
+                    const asset = marketMap[idKey];
+                    const oldPrice = asset.price;
+                    asset.price = parseFloat(tick.c);
+                    asset.changePct = parseFloat(tick.P);
+                    asset.high = parseFloat(tick.h);
+                    asset.low = parseFloat(tick.l);
+                    asset.volume = parseFloat(tick.q);
+                    updateDOMRowRealtime(asset, oldPrice);
+                    if (selectedAsset && selectedAsset.id === idKey) updateHUDDisplayValues(asset);
+                    checkPriceAlerts(asset);
+                }
+            });
+        };
+        spotTickerSocket.onerror = () => { try { spotTickerSocket.close(); } catch (e) {} };
+        spotTickerSocket.onclose = () => { setStatus('spot', 'error', 'Reconnecting'); scheduleSpotReconnect(); };
+    }
+
+    function connectFuturesTicker() {
+        if (futuresTickerSocket) { futuresTickerSocket.onclose = null; try { futuresTickerSocket.close(); } catch (e) {} }
+        setStatus('futures', 'connecting', 'Connecting');
+        try {
+            futuresTickerSocket = new WebSocket('wss://fstream.binance.com/ws/!ticker@arr');
+        } catch (e) {
+            setStatus('futures', 'error', 'Failed');
+            scheduleFuturesReconnect();
+            return;
+        }
+        futuresTickerSocket.onopen = () => { setStatus('futures', 'live', 'Live'); futuresBackoff = 3000; resetWatchdog('futures'); };
+        futuresTickerSocket.onmessage = (event) => {
+            touchWatchdog('futures');
+            let data;
+            try { data = JSON.parse(event.data); } catch (e) { return; }
+            if (!Array.isArray(data)) return;
+            data.forEach(tick => {
+                const idKey = `${tick.s.toUpperCase()}_F`; 
+                if (marketMap[idKey]) {
+                    const asset = marketMap[idKey];
+                    const oldPrice = asset.price;
+                    asset.price = parseFloat(tick.c);
+                    asset.changePct = parseFloat(tick.P);
+                    asset.high = parseFloat(tick.h);
+                    asset.low = parseFloat(tick.l);
+                    asset.volume = parseFloat(tick.q);
+                    updateDOMRowRealtime(asset, oldPrice);
+                    if (selectedAsset && selectedAsset.id === idKey) updateHUDDisplayValues(asset);
+                    checkPriceAlerts(asset);
+                }
+            });
+        };
+        futuresTickerSocket.onerror = () => { try { futuresTickerSocket.close(); } catch (e) {} };
+        futuresTickerSocket.onclose = () => { setStatus('futures', 'error', 'Reconnecting'); scheduleFuturesReconnect(); };
+    }
+
+    function scheduleSpotReconnect() {
+        if (globalReconnectTimeout) return;
+        globalReconnectTimeout = setTimeout(() => {
+            globalReconnectTimeout = null;
+            connectSpotTicker();
+        }, Math.min(spotBackoff *= 1.5, 30000));
+    }
+    function scheduleFuturesReconnect() {
+        if (futuresReconnectPending) return;
+        futuresReconnectPending = true;
+        setTimeout(() => {
+            futuresReconnectPending = false;
+            connectFuturesTicker();
+        }, Math.min(futuresBackoff *= 1.5, 30000));
+    }
+    let futuresReconnectPending = false;
+
+    function updateDOMRowRealtime(asset, oldPrice) {
+        const row = document.getElementById(asset.domId);
+        if (!row) return;
+
+        const priceCell = row.querySelector('.price-cell');
+        const changeCell = row.querySelector('.change-cell');
+        const volumeCell = row.querySelector('.volume-cell');
+
+        if (priceCell && changeCell) {
+            priceCell.innerText = `$${asset.price.toLocaleString(undefined, priceFmt(asset.price))}`;
+            changeCell.innerText = `${asset.changePct >= 0 ? '+' : ''}${asset.changePct.toFixed(2)}%`;
+            changeCell.className = `py-3 px-4 text-right font-bold change-cell ${asset.changePct >= 0 ? 'text-[#0ecb81]' : 'text-[#f6465d]'}`;
+            if (volumeCell) volumeCell.innerText = `$${formatCompact(asset.volume)}`;
+
+            if (asset.price > oldPrice) {
+                priceCell.className = "py-3 px-3 text-right font-mono price-cell text-[#0ecb81] flash-green";
+                setTimeout(() => priceCell.className = "py-3 px-3 text-right font-mono price-cell text-gray-100", 400);
+            } else if (asset.price < oldPrice) {
+                priceCell.className = "py-3 px-3 text-right font-mono price-cell text-[#f6465d] flash-red";
+                setTimeout(() => priceCell.className = "py-3 px-3 text-right font-mono price-cell text-gray-100", 400);
+            }
+        }
+    }
+
+    // ---------- Asset selection ----------
+    function selectAsset(item) {
+        selectedAsset = item;
+        updateHUDDisplayValues(item);
+        localStorage.setItem('cw_last_selection', JSON.stringify({ id: item.id, interval: currentInterval }));
+        
+        document.querySelectorAll('#crypto-rows tr').forEach(r => r.classList.remove('active-row'));
+        const activeRow = document.getElementById(item.domId);
+        if (activeRow) activeRow.classList.add('active-row');
+
+        initializeAssetChartEngine();
+        connectOrderBookStream();
+        connectTradesStream();
+        startBookAndTradesPolling();
+        renderAlertsList();
+    }
+
+    function updateHUDDisplayValues(item) {
+        const precision = item.price < 1 ? 5 : 2;
+        document.getElementById('hud-price').innerText = `$${item.price.toLocaleString(undefined, { minimumFractionDigits: precision, maximumFractionDigits: 6 })}`;
+        
+        const changeEl = document.getElementById('hud-change');
+        changeEl.innerText = `${item.changePct >= 0 ? '+' : ''}${item.changePct.toFixed(2)}%`;
+        changeEl.className = `text-sm font-mono font-bold ${item.changePct >= 0 ? 'text-[#0ecb81]' : 'text-[#f6465d]'}`;
+
+        document.getElementById('hud-high').innerText = `$${(item.high || 0).toLocaleString(undefined, priceFmt(item.high || 0))}`;
+        document.getElementById('hud-low').innerText = `$${(item.low || 0).toLocaleString(undefined, priceFmt(item.low || 0))}`;
+        document.getElementById('hud-volume').innerText = `$${formatCompact(item.volume)}`;
+
+        const badge = document.getElementById('chart-market-badge');
+        badge.innerText = item.isFutures ? 'Perpetual Futures' : 'Spot Cash';
+        badge.className = item.isFutures ? 'text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+    }
+
+    // ---------- Indicator math ----------
+    function calculateSMA(data, count) {
+        const result = [];
+        if (data.length < count) return result;
+        for (let i = 0; i < data.length; i++) {
+            if (i < count - 1) continue;
+            let sum = 0;
+            for (let j = 0; j < count; j++) sum += data[i - j].close;
+            result.push({ time: data[i].time, value: sum / count });
+        }
+        return result;
+    }
+
+    function calculateBollingerBands(data, period = 20, multiplier = 2) {
+        const upperBand = [];
+        const basisBand = [];
+        const lowerBand = [];
+        
+        if (data.length < period) return { upper: [], basis: [], lower: [] };
+
+        for (let i = 0; i < data.length; i++) {
+            if (i < period - 1) continue;
+            
+            let sum = 0;
+            for (let j = 0; j < period; j++) sum += data[i - j].close;
+            const mean = sum / period;
+            
+            let variance = 0;
+            for (let j = 0; j < period; j++) variance += Math.pow(data[i - j].close - mean, 2);
+            const stdDev = Math.sqrt(variance / period);
+            
+            basisBand.push({ time: data[i].time, value: mean });
+            upperBand.push({ time: data[i].time, value: mean + (multiplier * stdDev) });
+            lowerBand.push({ time: data[i].time, value: mean - (multiplier * stdDev) });
+        }
+        return { upper: upperBand, basis: basisBand, lower: lowerBand };
+    }
+
+    function calculateRSI(data, period = 14) {
+        const result = [];
+        if (data.length < period + 1) return result;
+        let gains = 0, losses = 0;
+        for (let i = 1; i <= period; i++) {
+            const diff = data[i].close - data[i - 1].close;
+            if (diff >= 0) gains += diff; else losses -= diff;
+        }
+        let avgGain = gains / period;
+        let avgLoss = losses / period;
+        result.push({ time: data[period].time, value: avgLoss === 0 ? 100 : 100 - (100 / (1 + (avgGain / avgLoss))) });
+
+        for (let i = period + 1; i < data.length; i++) {
+            const diff = data[i].close - data[i - 1].close;
+            const gain = diff > 0 ? diff : 0;
+            const loss = diff < 0 ? -diff : 0;
+            avgGain = ((avgGain * (period - 1)) + gain) / period;
+            avgLoss = ((avgLoss * (period - 1)) + loss) / period;
+            const rs = avgLoss === 0 ? 100 : avgGain / avgLoss;
+            const rsiVal = avgLoss === 0 ? 100 : 100 - (100 / (1 + rs));
+            result.push({ time: data[i].time, value: rsiVal });
+        }
+        return result;
+    }
+
+    // Shared by both the WebSocket kline handler and the REST polling fallback below, so a
+    // live candle update always looks identical no matter which transport delivered it.
+    function applyLiveCandle(liveCandle) {
+        if (!candlestickSeries || !volumeSeries) return;
+        candlestickSeries.update(liveCandle);
+        if (lineSeries) lineSeries.update({ time: liveCandle.time, value: liveCandle.close });
+        volumeSeries.update({
+            time: liveCandle.time, value: liveCandle.volume,
+            color: liveCandle.close >= liveCandle.open ? 'rgba(14, 203, 129, 0.2)' : 'rgba(246, 70, 93, 0.2)'
+        });
+
+        const matchIndex = cachedCandlesArray.findIndex(c => c.time === liveCandle.time);
+        if (matchIndex !== -1) {
+            cachedCandlesArray[matchIndex] = liveCandle;
+        } else {
+            cachedCandlesArray.push(liveCandle);
+            if (cachedCandlesArray.length > 400) cachedCandlesArray.shift();
+        }
+
+        updateIndicatorsData();
+        updateLegendText(liveCandle);
+    }
+
+    // ---------- REST polling fallback ----------
+    // Some networks/browsers silently block persistent WebSocket connections while ordinary
+    // HTTPS requests go through fine — the page loads once and then just never updates, which
+    // looks identical to "the chart is frozen." Polling doesn't depend on a long-lived
+    // connection at all, so it works even when WebSockets can't. It runs *in addition to* the
+    // WebSocket paths above (harmless if both are active — poll updates are idempotent) and is
+    // what actually guarantees the price keeps moving without a manual refresh.
+    let chartPollTimer = null;
+    let gridPollTimer = null;
+    let bookPollTimer = null;
+    let tradesPollTimer = null;
+
+    function startChartPolling() {
+        if (chartPollTimer) clearInterval(chartPollTimer);
+        const myToken = chartRequestToken;
+        chartPollTimer = setInterval(async () => {
+            if (myToken !== chartRequestToken || !selectedAsset) { clearInterval(chartPollTimer); return; }
+            try {
+                const endpoint = selectedAsset.isFutures
+                    ? `https://fapi.binance.com/fapi/v1/klines?symbol=${selectedAsset.symbol}&interval=${currentInterval}&limit=2`
+                    : `https://api.binance.com/api/v3/klines?symbol=${selectedAsset.symbol}&interval=${currentInterval}&limit=2`;
+                const res = await fetchWithTimeout(endpoint, 8000);
+                if (myToken !== chartRequestToken || !res.ok) return;
+                const data = await res.json();
+                if (myToken !== chartRequestToken || !Array.isArray(data) || data.length === 0) return;
+                const d = data[data.length - 1];
+                applyLiveCandle({
+                    time: Math.floor(d[0] / 1000),
+                    open: parseFloat(d[1]),
+                    high: parseFloat(d[2]),
+                    low: parseFloat(d[3]),
+                    close: parseFloat(d[4]),
+                    volume: parseFloat(d[5])
+                });
+                touchWatchdog('chart');
+                const feedDot = document.getElementById('chart-feed-dot');
+                if (feedDot && feedDot.className.indexOf('status-live') === -1) feedDot.className = 'status-dot status-live';
+            } catch (e) { /* transient network hiccup — next tick will retry */ }
+        }, 4000);
+    }
+
+    async function refreshMarketSnapshots() {
+        if (Object.keys(marketMap).length === 0) return;
+        try {
+            const [spotRaw, futuresRaw] = await Promise.all([fetchSpotSnapshot(), fetchFuturesSnapshot()]);
+            const apply = (arr, isFutures) => {
+                if (!Array.isArray(arr)) return;
+                arr.filter(item => item && typeof item.symbol === 'string' && item.symbol.endsWith('USDT')).forEach(item => {
+                    const idKey = `${item.symbol.toUpperCase()}_${isFutures ? 'F' : 'S'}`;
+                    const asset = marketMap[idKey];
+                    if (!asset) return;
+                    const oldPrice = asset.price;
+                    asset.price = parseFloat(item.lastPrice) || asset.price;
+                    asset.changePct = parseFloat(item.priceChangePercent) || asset.changePct;
+                    asset.high = parseFloat(item.highPrice) || asset.high;
+                    asset.low = parseFloat(item.lowPrice) || asset.low;
+                    asset.volume = parseFloat(item.quoteVolume) || asset.volume;
+                    updateDOMRowRealtime(asset, oldPrice);
+                    if (selectedAsset && selectedAsset.id === idKey) updateHUDDisplayValues(asset);
+                    checkPriceAlerts(asset);
+                });
+            };
+            apply(spotRaw, false);
+            apply(futuresRaw, true);
+        } catch (e) { /* transient — next tick will retry */ }
+    }
+
+    function startBookAndTradesPolling() {
+        if (bookPollTimer) clearInterval(bookPollTimer);
+        if (tradesPollTimer) clearInterval(tradesPollTimer);
+        const myAssetId = selectedAsset ? selectedAsset.id : null;
+        if (!myAssetId) return;
+
+        bookPollTimer = setInterval(async () => {
+            if (!selectedAsset || selectedAsset.id !== myAssetId) { clearInterval(bookPollTimer); return; }
+            try {
+                const endpoint = selectedAsset.isFutures
+                    ? `https://fapi.binance.com/fapi/v1/depth?symbol=${selectedAsset.symbol}&limit=10`
+                    : `https://api.binance.com/api/v3/depth?symbol=${selectedAsset.symbol}&limit=10`;
+                const res = await fetchWithTimeout(endpoint, 8000);
+                if (!res.ok || !selectedAsset || selectedAsset.id !== myAssetId) return;
+                const data = await res.json();
+                if (!selectedAsset || selectedAsset.id !== myAssetId) return;
+                renderOrderBook(data.bids || [], data.asks || []);
+                touchWatchdog('depth');
+                const dot = document.getElementById('depth-status');
+                if (dot && dot.className.indexOf('status-live') === -1) dot.className = 'status-dot status-live';
+            } catch (e) { /* ignore, retry next tick */ }
+        }, 3000);
+
+        tradesPollTimer = setInterval(async () => {
+            if (!selectedAsset || selectedAsset.id !== myAssetId) { clearInterval(tradesPollTimer); return; }
+            try {
+                const endpoint = selectedAsset.isFutures
+                    ? `https://fapi.binance.com/fapi/v1/trades?symbol=${selectedAsset.symbol}&limit=5`
+                    : `https://api.binance.com/api/v3/trades?symbol=${selectedAsset.symbol}&limit=5`;
+                const res = await fetchWithTimeout(endpoint, 8000);
+                if (!res.ok || !selectedAsset || selectedAsset.id !== myAssetId) return;
+                const data = await res.json();
+                if (!Array.isArray(data) || !selectedAsset || selectedAsset.id !== myAssetId) return;
+                data.forEach(t => renderTrade({ p: t.price, q: t.qty, m: t.isBuyerMaker, T: t.time }));
+                touchWatchdog('trades');
+                const dot = document.getElementById('trades-status');
+                if (dot && dot.className.indexOf('status-live') === -1) dot.className = 'status-dot status-live';
+            } catch (e) { /* ignore, retry next tick */ }
+        }, 5000);
+    }
+
+    setInterval(refreshMarketSnapshots, 10000);
+
+
+    async function initializeAssetChartEngine() {
+        if (!selectedAsset) return;
+        const myToken = ++chartRequestToken;
+        if (chartReconnectTimeout) clearTimeout(chartReconnectTimeout);
+        if (chartSocket) { chartSocket.onclose = null; try { chartSocket.close(); } catch (e) {} chartSocket = null; }
+
+        document.getElementById('chart-title').innerText = `${selectedAsset.baseAsset}/USDT`;
+        document.getElementById('chart-ticker-sym').innerText = `Matrix engine tracking: ${selectedAsset.symbol} (${currentInterval})`;
+        document.getElementById('legend-sym').innerText = selectedAsset.symbol;
+
+        const restEndpoint = selectedAsset.isFutures
+            ? `https://fapi.binance.com/fapi/v1/klines?symbol=${selectedAsset.symbol}&interval=${currentInterval}&limit=300`
+            : `https://api.binance.com/api/v3/klines?symbol=${selectedAsset.symbol}&interval=${currentInterval}&limit=300`;
+
+        try {
+            container.innerHTML = `<div class="flex flex-col items-center gap-2 text-gray-500 text-xs"><div class="animate-spin rounded-full h-5 w-5 border-b-2 border-[#0ecb81]"></div>Loading ${selectedAsset.symbol} ${selectedAsset.isFutures ? 'futures' : 'spot'} candles...</div>`;
+
+            const res = await fetchWithTimeout(restEndpoint, 12000);
+            if (myToken !== chartRequestToken) return; // a newer selection superseded this request
+
+            if (!res.ok) throw new Error(`Kline API responded with status ${res.status}`);
+            const data = await res.json();
+            if (myToken !== chartRequestToken) return;
+
+            if (data && !Array.isArray(data) && data.code) {
+                throw new Error(`Kline API error ${data.code}: ${data.msg || 'unknown error'}`);
+            }
+            if (!Array.isArray(data) || data.length === 0) {
+                throw new Error('No candle data returned for this symbol/interval.');
+            }
+
+            cachedCandlesArray = data.map(d => ({
+                time: Math.floor(d[0] / 1000),
+                open: parseFloat(d[1]),
+                high: parseFloat(d[2]),
+                low: parseFloat(d[3]),
+                close: parseFloat(d[4]),
+                volume: parseFloat(d[5])
+            }));
+
+            if (chartInstance) {
+                if (resizeObserver) resizeObserver.disconnect();
+                chartInstance.remove();
+                chartInstance = null;
+            }
+            if (rsiChartInstance) { rsiChartInstance.remove(); rsiChartInstance = null; }
+
+            container.innerHTML = '';
+            ohlvLegend.classList.remove('hidden');
+
+            chartInstance = LightweightCharts.createChart(container, {
+                layout: { background: { color: '#181a20' }, textColor: '#848e9c', fontSize: 11, fontFamily: 'monospace' },
+                grid: { vertLines: { color: '#2b2f3a' }, horzLines: { color: '#2b2f3a' } },
+                crosshair: {
+                    mode: LightweightCharts.CrosshairMode.Normal,
+                    vertLine: { labelBackgroundColor: '#474d57', color: '#5e6673', style: 3 },
+                    horzLine: { labelBackgroundColor: '#474d57', color: '#5e6673', style: 3 },
+                },
+                rightPriceScale: { borderColor: '#2b2f3a', autoScale: true },
+                leftPriceScale: { borderColor: '#2b2f3a', visible: false },
+                timeScale: { borderColor: '#2b2f3a', timeVisible: true },
+            });
+
+            candlestickSeries = chartInstance.addCandlestickSeries({
+                upColor: '#0ecb81', downColor: '#f6465d', borderVisible: false,
+                wickUpColor: '#0ecb81', wickDownColor: '#f6465d',
+                visible: currentChartType === 'candles'
+            });
+            candlestickSeries.setData(cachedCandlesArray);
+
+            lineSeries = chartInstance.addLineSeries({
+                color: '#0ecb81', lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: true,
+                visible: currentChartType === 'line'
+            });
+            lineSeries.setData(cachedCandlesArray.map(c => ({ time: c.time, value: c.close })));
+
+            // Tech Overlays Integration Pipeline
+            ma7Series = chartInstance.addLineSeries({ color: '#e5b324', lineWidth: 1.5, title: 'MA(7)', priceLineVisible: false, crosshairMarkerVisible: false });
+            ma25Series = chartInstance.addLineSeries({ color: '#24a0e5', lineWidth: 1.5, title: 'MA(25)', priceLineVisible: false, crosshairMarkerVisible: false });
+            
+            bbUpperSeries = chartInstance.addLineSeries({ color: 'rgba(168, 85, 247, 0.6)', lineWidth: 1, title: 'BB Upper', priceLineVisible: false, crosshairMarkerVisible: false });
+            bbBasisSeries = chartInstance.addLineSeries({ color: 'rgba(168, 85, 247, 0.3)', lineWidth: 1, lineStyle: 2, title: 'BB Basis', priceLineVisible: false, crosshairMarkerVisible: false });
+            bbLowerSeries = chartInstance.addLineSeries({ color: 'rgba(168, 85, 247, 0.6)', lineWidth: 1, title: 'BB Lower', priceLineVisible: false, crosshairMarkerVisible: false });
+
+            volumeSeries = chartInstance.addHistogramSeries({ 
+                priceFormat: { type: 'volume' }, 
+                priceScaleId: 'left', 
+                priceLineVisible: false 
+            });
+            chartInstance.priceScale('left').applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+            
+            volumeSeries.setData(cachedCandlesArray.map(c => ({
+                time: c.time, value: c.volume, color: c.close >= c.open ? 'rgba(14, 203, 129, 0.2)' : 'rgba(246, 70, 93, 0.2)'
+            })));
+
+            setupRSIPanel();
+            updateIndicatorsData();
+
+            updateLegendText(cachedCandlesArray[cachedCandlesArray.length - 1]);
+
+            chartInstance.subscribeCrosshairMove(param => {
+                if (!param || !param.time || param.point === undefined) {
+                    if (cachedCandlesArray.length) updateLegendText(cachedCandlesArray[cachedCandlesArray.length - 1]);
+                    return;
+                }
+                const candle = param.seriesData.get(currentChartType === 'candles' ? candlestickSeries : lineSeries);
+                const vol = param.seriesData.get(volumeSeries);
+                if (candle && candle.open !== undefined) {
+                    updateLegendText({ open: candle.open, high: candle.high, low: candle.low, close: candle.close, volume: vol ? vol.value : 0 });
+                } else if (candle && candle.value !== undefined) {
+                    updateLegendText({ open: candle.value, high: candle.value, low: candle.value, close: candle.value, volume: vol ? vol.value : 0 });
+                }
+            });
+
+            chartInstance.timeScale().fitContent();
+
+            chartInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
+                if (syncingRange || !rsiChartInstance || !range) return;
+                syncingRange = true;
+                rsiChartInstance.timeScale().setVisibleLogicalRange(range);
+                syncingRange = false;
+            });
+            
+            resizeObserver = new ResizeObserver(entries => {
+                if (chartInstance && entries[0].contentRect.width > 0) {
+                    chartInstance.resize(entries[0].contentRect.width, 400);
+                    if (rsiChartInstance) rsiChartInstance.resize(entries[0].contentRect.width, 110);
+                }
+            });
+            resizeObserver.observe(container);
+
+            connectLiveChartWebSocket(selectedAsset.symbol, selectedAsset.isFutures);
+            startChartPolling();
+
+        } catch (err) {
+            if (myToken !== chartRequestToken) return;
+            console.error("Historical trace failure:", err);
+            container.innerHTML = `<div class="flex flex-col items-center gap-2 text-center px-4"><span class="text-[#f6465d] text-xs font-bold">Could not load ${selectedAsset.isFutures ? 'futures' : 'spot'} chart for ${selectedAsset.symbol}</span><span class="text-gray-500 text-[10px]">${(err && err.message) ? err.message : 'Unknown error'} — retrying in 5s</span></div>`;
+            chartReconnectTimeout = setTimeout(() => { if (myToken === chartRequestToken) initializeAssetChartEngine(); }, 5000);
+        }
+    }
+
+    function setupRSIPanel() {
+        const rsiPanel = document.getElementById('rsi-panel');
+        const rsiWorkspace = document.getElementById('rsi-workspace');
+        if (!activeIndicators.rsi) { rsiPanel.classList.add('hidden'); return; }
+        rsiPanel.classList.remove('hidden');
+        rsiWorkspace.innerHTML = '';
+
+        rsiChartInstance = LightweightCharts.createChart(rsiWorkspace, {
+            layout: { background: { color: '#181a20' }, textColor: '#848e9c', fontSize: 10, fontFamily: 'monospace' },
+            grid: { vertLines: { color: '#2b2f3a' }, horzLines: { color: '#2b2f3a' } },
+            rightPriceScale: { borderColor: '#2b2f3a' },
+            timeScale: { borderColor: '#2b2f3a', visible: true, timeVisible: true },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        });
+
+        rsiLineSeries = rsiChartInstance.addLineSeries({ color: '#a855f7', lineWidth: 1.5, priceLineVisible: false });
+        rsiLineSeries.createPriceLine({ price: 70, color: '#f6465d', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OB' });
+        rsiLineSeries.createPriceLine({ price: 30, color: '#0ecb81', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'OS' });
+
+        rsiChartInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
+            if (syncingRange || !chartInstance || !range) return;
+            syncingRange = true;
+            chartInstance.timeScale().setVisibleLogicalRange(range);
+            syncingRange = false;
+        });
+    }
+
+    function updateIndicatorsData() {
+        if (!chartInstance) return;
+        
+        if (activeIndicators.ma7) ma7Series.setData(calculateSMA(cachedCandlesArray, 7));
+        else ma7Series.setData([]);
+
+        if (activeIndicators.ma25) ma25Series.setData(calculateSMA(cachedCandlesArray, 25));
+        else ma25Series.setData([]);
+
+        if (activeIndicators.bb) {
+            const bb = calculateBollingerBands(cachedCandlesArray, 20, 2);
+            bbUpperSeries.setData(bb.upper);
+            bbBasisSeries.setData(bb.basis);
+            bbLowerSeries.setData(bb.lower);
+        } else {
+            bbUpperSeries.setData([]);
+            bbBasisSeries.setData([]);
+            bbLowerSeries.setData([]);
+        }
+
+        if (activeIndicators.rsi && rsiLineSeries) {
+            rsiLineSeries.setData(calculateRSI(cachedCandlesArray, 14));
+        }
+    }
+
+    let chartBackoff = 3000;
+
+    function connectLiveChartWebSocket(symbol, isFutures) {
+        const myToken = chartRequestToken;
+        if (chartReconnectTimeout) clearTimeout(chartReconnectTimeout);
+        const feedDot = document.getElementById('chart-feed-dot');
+        if (feedDot) feedDot.className = 'status-dot status-connecting';
+
+        const wsEndpoint = isFutures
+            ? `wss://fstream.binance.com/ws/${symbol.toLowerCase()}@kline_${currentInterval}`
+            : `wss://stream.binance.com:9443/ws/${symbol.toLowerCase()}@kline_${currentInterval}`;
+
+        try {
+            chartSocket = new WebSocket(wsEndpoint);
+        } catch (e) {
+            if (feedDot) feedDot.className = 'status-dot status-error';
+            chartReconnectTimeout = setTimeout(() => { if (myToken === chartRequestToken) connectLiveChartWebSocket(symbol, isFutures); }, Math.min(chartBackoff *= 1.5, 20000));
+            return;
+        }
+
+        chartSocket.onopen = () => {
+            if (myToken !== chartRequestToken) return;
+            resetWatchdog('chart');
+            chartBackoff = 3000;
+            if (feedDot) feedDot.className = 'status-dot status-live';
+        };
+
+        chartSocket.onmessage = (event) => {
+            if (myToken !== chartRequestToken) return;
+            touchWatchdog('chart');
+            let msg;
+            try { msg = JSON.parse(event.data); } catch (e) { return; }
+            if (!msg || msg.e !== "kline" || !msg.k || msg.k.i !== currentInterval) return;
+            
+            const k = msg.k;
+            applyLiveCandle({
+                time: Math.floor(k.t / 1000),
+                open: parseFloat(k.o),
+                high: parseFloat(k.h),
+                low: parseFloat(k.l),
+                close: parseFloat(k.c),
+                volume: parseFloat(k.v)
+            });
+        };
+
+        chartSocket.onerror = () => { try { chartSocket.close(); } catch (e) {} };
+        chartSocket.onclose = () => {
+            if (myToken !== chartRequestToken) return;
+            if (feedDot) feedDot.className = 'status-dot status-error';
+            chartReconnectTimeout = setTimeout(() => {
+                if (myToken === chartRequestToken) connectLiveChartWebSocket(symbol, isFutures);
+            }, Math.min(chartBackoff *= 1.5, 20000));
+        };
+    }
+
+    function updateLegendText(candle) {
+        if (!candle) return;
+        const precision = candle.close < 1 ? 5 : 2;
+        document.getElementById('leg-o').innerText = candle.open.toFixed(precision);
+        document.getElementById('leg-h').innerText = candle.high.toFixed(precision);
+        document.getElementById('leg-l').innerText = candle.low.toFixed(precision);
+        document.getElementById('leg-c').innerText = candle.close.toFixed(precision);
+        document.getElementById('leg-v').innerText = candle.volume > 1000000 ? (candle.volume / 1000000).toFixed(2) + 'M' : candle.volume.toLocaleString(undefined, { maximumFractionDigits: 0 });
+        
+        const colorClass = candle.close >= candle.open ? 'text-[#0ecb81]' : 'text-[#f6465d]';
+        ['leg-o', 'leg-h', 'leg-l', 'leg-c'].forEach(id => document.getElementById(id).className = colorClass);
+    }
+
+    // ---------- Order book depth stream ----------
+    function connectOrderBookStream() {
+        if (depthReconnectTimeout) clearTimeout(depthReconnectTimeout);
+        if (depthSocket) { depthSocket.onclose = null; try { depthSocket.close(); } catch (e) {} }
+        if (!selectedAsset) return;
+
+        const statusDot = document.getElementById('depth-status');
+        statusDot.className = 'status-dot status-connecting';
+
+        const endpoint = selectedAsset.isFutures
+            ? `wss://fstream.binance.com/ws/${selectedAsset.symbol.toLowerCase()}@depth20@500ms`
+            : `wss://stream.binance.com:9443/ws/${selectedAsset.symbol.toLowerCase()}@depth20@100ms`;
+
+        const myAssetId = selectedAsset.id;
+        try {
+            depthSocket = new WebSocket(endpoint);
+        } catch (e) {
+            statusDot.className = 'status-dot status-error';
+            return;
+        }
+        depthSocket.onopen = () => { if (selectedAsset && selectedAsset.id === myAssetId) { statusDot.className = 'status-dot status-live'; resetWatchdog('depth'); } };
+        depthSocket.onmessage = (event) => {
+            touchWatchdog('depth');
+            if (!selectedAsset || selectedAsset.id !== myAssetId) return;
+            let data;
+            try { data = JSON.parse(event.data); } catch (e) { return; }
+            const bids = data.bids || data.b || [];
+            const asks = data.asks || data.a || [];
+            renderOrderBook(bids, asks);
+        };
+        depthSocket.onerror = () => { try { depthSocket.close(); } catch (e) {} };
+        depthSocket.onclose = () => {
+            if (!selectedAsset || selectedAsset.id !== myAssetId) return;
+            document.getElementById('depth-status').className = 'status-dot status-error';
+            depthReconnectTimeout = setTimeout(() => { if (selectedAsset && selectedAsset.id === myAssetId) connectOrderBookStream(); }, 5000);
+        };
+    }
+
+    function renderOrderBook(bids, asks) {
+        const topBids = bids.slice(0, 10).map(b => ({ price: parseFloat(b[0]), qty: parseFloat(b[1]) }));
+        const topAsks = asks.slice(0, 10).map(a => ({ price: parseFloat(a[0]), qty: parseFloat(a[1]) }));
+        const maxQty = Math.max(...topBids.map(b => b.qty), ...topAsks.map(a => a.qty), 0.0001);
+
+        const precision = selectedAsset && selectedAsset.price < 1 ? 5 : 2;
+
+        document.getElementById('book-bids').innerHTML = topBids.map(b => {
+            const width = Math.min(100, (b.qty / maxQty) * 100);
+            return `<div class="relative flex justify-between px-1 py-[1px] depth-bar-bid rounded-sm" style="background-size:${width}% 100%; background-repeat:no-repeat;">
+                <span class="text-[#0ecb81]">${b.price.toFixed(precision)}</span><span class="text-gray-400">${b.qty.toFixed(3)}</span>
+            </div>`;
+        }).join('') || '<p class="text-gray-600">--</p>';
+
+        document.getElementById('book-asks').innerHTML = topAsks.map(a => {
+            const width = Math.min(100, (a.qty / maxQty) * 100);
+            return `<div class="relative flex justify-between px-1 py-[1px] depth-bar-ask rounded-sm" style="background-size:${width}% 100%; background-repeat:no-repeat; background-position:right;">
+                <span class="text-gray-400">${a.qty.toFixed(3)}</span><span class="text-[#f6465d]">${a.price.toFixed(precision)}</span>
+            </div>`;
+        }).join('') || '<p class="text-gray-600">--</p>';
+    }
+
+    // ---------- Recent trades stream ----------
+    function connectTradesStream() {
+        if (tradesReconnectTimeout) clearTimeout(tradesReconnectTimeout);
+        if (tradesSocket) { tradesSocket.onclose = null; try { tradesSocket.close(); } catch (e) {} }
+        if (!selectedAsset) return;
+
+        document.getElementById('trades-list').innerHTML = '';
+        const statusDot = document.getElementById('trades-status');
+        statusDot.className = 'status-dot status-connecting';
+
+        const endpoint = selectedAsset.isFutures
+            ? `wss://fstream.binance.com/ws/${selectedAsset.symbol.toLowerCase()}@trade`
+            : `wss://stream.binance.com:9443/ws/${selectedAsset.symbol.toLowerCase()}@trade`;
+
+        const myAssetId = selectedAsset.id;
+        try {
+            tradesSocket = new WebSocket(endpoint);
+        } catch (e) {
+            statusDot.className = 'status-dot status-error';
+            return;
+        }
+        tradesSocket.onopen = () => { if (selectedAsset && selectedAsset.id === myAssetId) { statusDot.className = 'status-dot status-live'; resetWatchdog('trades'); } };
+        tradesSocket.onmessage = (event) => {
+            touchWatchdog('trades');
+            if (!selectedAsset || selectedAsset.id !== myAssetId) return;
+            let t;
+            try { t = JSON.parse(event.data); } catch (e) { return; }
+            renderTrade(t);
+        };
+        tradesSocket.onerror = () => { try { tradesSocket.close(); } catch (e) {} };
+        tradesSocket.onclose = () => {
+            if (!selectedAsset || selectedAsset.id !== myAssetId) return;
+            document.getElementById('trades-status').className = 'status-dot status-error';
+            tradesReconnectTimeout = setTimeout(() => { if (selectedAsset && selectedAsset.id === myAssetId) connectTradesStream(); }, 5000);
+        };
+    }
+
+    function renderTrade(t) {
+        const price = parseFloat(t.p);
+        const qty = parseFloat(t.q);
+        const isSell = t.m === true; // buyer is maker => taker sold into bid
+        const time = new Date(t.T || t.E || Date.now());
+        const timeStr = time.toLocaleTimeString(undefined, { hour12: false });
+        const precision = price < 1 ? 5 : 2;
+
+        const row = document.createElement('div');
+        row.className = `flex justify-between ${isSell ? 'text-[#f6465d]' : 'text-[#0ecb81]'}`;
+        row.innerHTML = `<span>${price.toFixed(precision)}</span><span class="text-gray-400">${qty.toFixed(4)}</span><span class="text-gray-600">${timeStr}</span>`;
+
+        const list = document.getElementById('trades-list');
+        list.prepend(row);
+        while (list.children.length > 40) list.removeChild(list.lastChild);
+    }
+
+    // ---------- Price alerts ----------
+    let notificationPermissionRequested = false;
+
+    function requestNotificationPermission() {
+        if (notificationPermissionRequested || !('Notification' in window)) return;
+        notificationPermissionRequested = true;
+        if (Notification.permission === 'default') Notification.requestPermission();
+    }
+
+    function renderAlertsList() {
+        const list = document.getElementById('alerts-list');
+        if (!selectedAsset) { list.innerHTML = '<p class="text-gray-600 text-[10px]">Select an asset first.</p>'; return; }
+        const alerts = priceAlerts[selectedAsset.id] || [];
+        if (alerts.length === 0) { list.innerHTML = '<p class="text-gray-600 text-[10px]">No alerts set for this asset.</p>'; return; }
+
+        list.innerHTML = alerts.map(a => `
+            <div class="flex items-center justify-between bg-gray-900/60 border border-gray-800 rounded px-2 py-1">
+                <span class="${a.direction === 'above' ? 'text-[#0ecb81]' : 'text-[#f6465d]'}">${a.direction === 'above' ? '▲ Above' : '▼ Below'} $${a.target}</span>
+                <button class="text-gray-500 hover:text-[#f6465d] cursor-pointer alert-remove" data-id="${a.id}">✕</button>
+            </div>
+        `).join('');
+
+        list.querySelectorAll('.alert-remove').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                priceAlerts[selectedAsset.id] = (priceAlerts[selectedAsset.id] || []).filter(a => a.id !== id);
+                localStorage.setItem('cw_alerts', JSON.stringify(priceAlerts));
+                renderAlertsList();
+            });
+        });
+    }
+
+    function checkPriceAlerts(asset) {
+        const alerts = priceAlerts[asset.id];
+        if (!alerts || alerts.length === 0) return;
+        let changed = false;
+        alerts.forEach(a => {
+            if (a.triggered) return;
+            const hit = (a.direction === 'above' && asset.price >= a.target) || (a.direction === 'below' && asset.price <= a.target);
+            if (hit) {
+                a.triggered = true;
+                changed = true;
+                const msg = `${asset.baseAsset} ${a.direction === 'above' ? 'rose above' : 'fell below'} $${a.target}`;
+                showToast(msg, a.direction === 'above' ? 'success' : 'error');
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('CryptoWatch Pro Alert', { body: msg });
+                }
+            }
+        });
+        if (changed) {
+            priceAlerts[asset.id] = alerts.filter(a => !a.triggered);
+            localStorage.setItem('cw_alerts', JSON.stringify(priceAlerts));
+            if (selectedAsset && selectedAsset.id === asset.id) renderAlertsList();
+        }
+    }
+
+    document.getElementById('alert-add-btn').addEventListener('click', () => {
+        if (!selectedAsset) { showToast('Select an asset first.', 'error'); return; }
+        const priceVal = parseFloat(document.getElementById('alert-price-input').value);
+        if (isNaN(priceVal) || priceVal <= 0) { showToast('Enter a valid target price.', 'error'); return; }
+        const direction = document.getElementById('alert-direction').value;
+        requestNotificationPermission();
+        if (!priceAlerts[selectedAsset.id]) priceAlerts[selectedAsset.id] = [];
+        priceAlerts[selectedAsset.id].push({ id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, direction, target: priceVal, triggered: false });
+        localStorage.setItem('cw_alerts', JSON.stringify(priceAlerts));
+        document.getElementById('alert-price-input').value = '';
+        renderAlertsList();
+        showToast(`Alert set: ${selectedAsset.baseAsset} ${direction} $${priceVal}`, 'success');
+    });
+
+    document.getElementById('alert-bell').addEventListener('click', () => {
+        document.getElementById('alert-price-input').focus();
+        requestNotificationPermission();
+    });
+
+    // ---------- Fullscreen ----------
+    document.getElementById('fullscreen-btn').addEventListener('click', () => {
+        const card = document.getElementById('chart-card');
+        if (!document.fullscreenElement) {
+            card.requestFullscreen?.();
+        } else {
+            document.exitFullscreen?.();
+        }
+    });
+
+    // ---------- Interactive Action Event Listeners ----------
+    document.querySelectorAll('.tf-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            document.querySelectorAll('.tf-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            currentInterval = e.target.getAttribute('data-tf');
+            if (selectedAsset) localStorage.setItem('cw_last_selection', JSON.stringify({ id: selectedAsset.id, interval: currentInterval }));
+            initializeAssetChartEngine();
+        });
+    });
+
+    document.querySelectorAll('.ctype-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            document.querySelectorAll('.ctype-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            currentChartType = e.target.getAttribute('data-ctype');
+            if (candlestickSeries) candlestickSeries.applyOptions({ visible: currentChartType === 'candles' });
+            if (lineSeries) lineSeries.applyOptions({ visible: currentChartType === 'line' });
+        });
+    });
+
+    document.querySelectorAll('.filter-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            document.querySelectorAll('.filter-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            currentFilter = e.target.getAttribute('data-filter');
+            renderTableHTMLStructure();
+        });
+    });
+
+    document.querySelectorAll('.ind-btn').forEach(button => {
+        // Synchronize initial state with visual markers
+        const type = button.getAttribute('data-ind');
+        if (activeIndicators[type]) button.classList.add('active');
+
+        button.addEventListener('click', (e) => {
+            const targetInd = e.target.getAttribute('data-ind');
+            activeIndicators[targetInd] = !activeIndicators[targetInd];
+            e.target.classList.toggle('active', activeIndicators[targetInd]);
+            if (targetInd === 'rsi') {
+                setupRSIPanel();
+                if (resizeObserver && container) {
+                    // trigger a resize pass so the RSI pane picks up the right width immediately
+                    if (rsiChartInstance) rsiChartInstance.resize(container.clientWidth, 110);
+                }
+            }
+            updateIndicatorsData();
+        });
+    });
+
+    searchInput.addEventListener('input', renderTableHTMLStructure);
+    initMasterTerminalData();
+</script>
+</body>
+</html>
