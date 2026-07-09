@@ -77,7 +77,10 @@
             <div class="lg:col-span-5 bg-[#181a20] border border-gray-800 rounded-lg shadow-2xl overflow-hidden">
                 <div class="px-4 py-3 border-b border-gray-800 bg-[#1e222b] flex justify-between items-center flex-wrap gap-2">
                     <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Market Monitor Grid</span>
-                    <span id="grid-count" class="text-[10px] text-gray-500 font-mono"></span>
+                    <div class="flex items-center gap-3">
+                        <span id="grid-count" class="text-[10px] text-gray-500 font-mono"></span>
+                        <button id="export-csv-btn" title="Export visible rows to CSV" class="text-[10px] px-2 py-1 rounded bg-gray-900 border border-gray-800 text-gray-400 hover:text-[#0ecb81] hover:border-[#0ecb81]/40 transition-all cursor-pointer">⭳ CSV</button>
+                    </div>
                 </div>
 
                 <!-- Tab Segment Filters -->
@@ -88,6 +91,12 @@
                     <button class="filter-btn text-[11px] px-3 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer" data-filter="gainers">▲ Gainers</button>
                     <button class="filter-btn text-[11px] px-3 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer" data-filter="losers">▼ Losers</button>
                     <button class="filter-btn text-[11px] px-3 py-1 rounded bg-gray-900 border border-gray-800/80 text-amber-500 hover:bg-gray-800/50 transition-all cursor-pointer" data-filter="watchlist">★ Watchlist</button>
+                </div>
+
+                <!-- Popular Coins Quick-Select -->
+                <div class="bg-[#14161c] border-b border-gray-800 px-2 py-2 flex items-center gap-1.5 flex-wrap">
+                    <span class="text-[9px] uppercase font-bold text-gray-600 tracking-wider px-1">Popular:</span>
+                    <div id="popular-coins-strip" class="flex items-center gap-1 flex-wrap"></div>
                 </div>
 
                 <div id="loading" class="flex flex-col items-center justify-center py-32">
@@ -156,7 +165,22 @@
                             <span class="text-[10px] text-gray-500 block uppercase font-bold">24h Volume</span>
                             <span id="hud-volume" class="text-sm font-mono font-bold text-gray-300">--</span>
                         </div>
+                        <div id="hud-funding-wrap" class="hidden">
+                            <span class="text-[10px] text-gray-500 block uppercase font-bold">Funding / Next</span>
+                            <span id="hud-funding" class="text-sm font-mono font-bold text-gray-300">--</span>
+                        </div>
                     </div>
+                </div>
+
+                <!-- 24h Range Position Bar -->
+                <div class="bg-[#181a20] border border-gray-800 rounded-lg px-6 py-2.5 shadow-xl flex items-center gap-3">
+                    <span class="text-[9px] uppercase font-bold text-gray-500 tracking-wider w-20 shrink-0">24h Range</span>
+                    <span id="range-low-label" class="text-[10px] font-mono text-gray-500 w-16 shrink-0">--</span>
+                    <div class="relative flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                        <div id="range-fill" class="absolute inset-y-0 left-0 bg-gradient-to-r from-[#f6465d] via-gray-600 to-[#0ecb81] opacity-40 w-full"></div>
+                        <div id="range-marker" class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white border-2 border-[#0b0e11] shadow" style="left:50%;"></div>
+                    </div>
+                    <span id="range-high-label" class="text-[10px] font-mono text-gray-500 w-16 shrink-0 text-right">--</span>
                 </div>
 
                 <!-- Comprehensive Timeframe & Technical Analysis Toolbars -->
@@ -183,6 +207,14 @@
                         <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="ma25">MA(25)</button>
                         <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="bb">BB(20,2)</button>
                         <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="rsi">RSI(14)</button>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] uppercase font-bold text-gray-500 px-2 tracking-wider">Compare:</span>
+                        <input id="compare-input" type="text" placeholder="e.g. ETH" list="compare-symbol-list"
+                            class="w-24 bg-gray-900 border border-gray-800/80 rounded text-[11px] px-2 py-1 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#24a0e5]">
+                        <datalist id="compare-symbol-list"></datalist>
+                        <button id="compare-clear-btn" title="Clear comparison" class="hidden text-[11px] px-2 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer">✕</button>
                     </div>
 
                     <button id="fullscreen-btn" title="Fullscreen chart" class="text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer ml-auto">⛶ Fullscreen</button>
@@ -243,8 +275,9 @@
 
                     <!-- Price Alerts -->
                     <div class="bg-[#181a20] border border-gray-800 rounded-lg shadow-xl overflow-hidden flex flex-col">
-                        <div class="px-3 py-2 border-b border-gray-800 bg-[#1e222b] text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                            Price Alerts
+                        <div class="px-3 py-2 border-b border-gray-800 bg-[#1e222b] text-[10px] font-bold uppercase tracking-wider text-gray-400 flex justify-between items-center">
+                            <span>Price Alerts</span>
+                            <button id="sound-toggle-btn" title="Toggle alert sound" class="text-gray-500 hover:text-amber-400 transition-colors cursor-pointer text-xs">🔊</button>
                         </div>
                         <div class="p-3 flex gap-2">
                             <select id="alert-direction" class="bg-gray-900 border border-gray-800 rounded text-[10px] px-1.5 py-1 text-gray-300">
@@ -261,6 +294,80 @@
                 </div>
             </div>
 
+        </div>
+
+        <!-- AI Market Insight -->
+        <div class="mt-6 bg-[#181a20] border border-gray-800 rounded-lg shadow-2xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-800 bg-[#1e222b] flex justify-between items-center flex-wrap gap-3">
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">🤖 AI Market Insight <span id="ai-asset-label" class="text-gray-600 normal-case font-normal"></span></span>
+                <div class="flex items-center gap-2">
+                    <button id="ai-key-toggle-btn" title="Set your Anthropic API key" class="text-[11px] px-2.5 py-1.5 rounded bg-gray-900 border border-gray-800 text-gray-400 hover:text-white transition-all cursor-pointer">⚙ API Key</button>
+                    <button id="ai-generate-btn" class="text-[11px] px-3 py-1.5 rounded bg-[#a855f7]/15 text-[#c084fc] border border-[#a855f7]/30 font-bold hover:bg-[#a855f7]/25 transition-all cursor-pointer flex items-center gap-1.5">
+                        ✨ Analyze Selected Coin
+                    </button>
+                </div>
+            </div>
+            <div id="ai-key-panel" class="hidden px-4 py-3 border-b border-gray-800 bg-[#14161c] flex flex-wrap items-center gap-2">
+                <input id="ai-key-input" type="password" placeholder="sk-ant-api03-..." autocomplete="off"
+                    class="flex-1 min-w-[220px] bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#a855f7]">
+                <button id="ai-key-save-btn" class="text-[11px] px-3 py-1.5 rounded bg-[#a855f7] text-white font-bold hover:opacity-90 transition-all cursor-pointer">Save</button>
+                <button id="ai-key-clear-btn" class="text-[11px] px-3 py-1.5 rounded bg-gray-900 border border-gray-800 text-gray-400 hover:text-white transition-all cursor-pointer">Clear</button>
+                <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" class="text-[10px] text-[#c084fc] hover:underline ml-1">Get an API key →</a>
+                <p class="w-full text-[9px] text-gray-600 mt-1">Stored only in this browser's local storage. Sent directly from your browser to Anthropic's API on each analysis — never passes through any other server.</p>
+            </div>
+            <div id="ai-insight-body" class="p-5">
+                <p class="text-gray-600 text-[11px]">Select an asset, then click "Analyze Selected Coin" for a plain-English read of its current technical setup — trend, momentum, and nearby support/resistance based on live price data.</p>
+            </div>
+            <div class="px-5 pb-4 text-[9px] text-gray-600 border-t border-gray-800/60 pt-2 leading-relaxed">
+                ⚠️ Generated by an AI model reading recent price data. This is an automated technical read, not financial advice, and not a guarantee of future price movement — it can be wrong. Always do your own research before trading.
+            </div>
+        </div>
+
+        <!-- Portfolio Tracker -->
+        <div class="mt-6 bg-[#181a20] border border-gray-800 rounded-lg shadow-2xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-800 bg-[#1e222b] flex justify-between items-center flex-wrap gap-3">
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">💼 Portfolio Tracker</span>
+                <div class="flex items-center gap-4 flex-wrap">
+                    <div class="text-right">
+                        <span class="text-[9px] text-gray-500 block uppercase font-bold">Total Value</span>
+                        <span id="portfolio-total-value" class="text-sm font-mono font-bold text-white">$0.00</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[9px] text-gray-500 block uppercase font-bold">Unrealized P&amp;L</span>
+                        <span id="portfolio-total-pnl" class="text-sm font-mono font-bold text-gray-400">$0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-3 flex flex-wrap gap-2 border-b border-gray-800 bg-[#14161c]">
+                <input id="holding-symbol-input" type="text" placeholder="Asset e.g. BTC" list="holding-symbol-list"
+                    class="w-32 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81]">
+                <datalist id="holding-symbol-list"></datalist>
+                <input id="holding-qty-input" type="number" step="any" placeholder="Quantity held"
+                    class="w-32 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81]">
+                <input id="holding-cost-input" type="number" step="any" placeholder="Avg cost / unit (optional)"
+                    class="w-44 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81]">
+                <button id="holding-add-btn" class="text-[11px] px-3 py-1.5 rounded bg-[#0ecb81] text-[#0b0e11] font-bold hover:opacity-90 transition-all cursor-pointer">Add Holding</button>
+            </div>
+
+            <div class="overflow-x-auto max-h-[280px]">
+                <table class="w-full text-left border-collapse whitespace-nowrap">
+                    <thead>
+                        <tr class="text-[10px] font-bold uppercase text-gray-500 border-b border-gray-800 bg-[#1e222b]/50 sticky top-0">
+                            <th class="py-2 px-3">Asset</th>
+                            <th class="py-2 px-3 text-right">Qty</th>
+                            <th class="py-2 px-3 text-right">Avg Cost</th>
+                            <th class="py-2 px-3 text-right">Price</th>
+                            <th class="py-2 px-3 text-right">Value</th>
+                            <th class="py-2 px-3 text-right">P&amp;L</th>
+                            <th class="py-2 px-3 w-8"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="portfolio-rows" class="divide-y divide-gray-800/40 text-xs font-mono">
+                        <tr><td colspan="7" class="py-8 text-center text-gray-600 text-[11px]">No holdings added yet — track quantities to see live portfolio value.</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -286,6 +393,19 @@
     let watchlist = safeJSONParse(localStorage.getItem('cw_watchlist'), []);
     let priceAlerts = safeJSONParse(localStorage.getItem('cw_alerts'), {}); // { assetId: [{id,direction,target,triggered}] }
     let lastSelection = safeJSONParse(localStorage.getItem('cw_last_selection'), null);
+    let holdings = safeJSONParse(localStorage.getItem('cw_holdings'), []); // [{id, symbol, qty, avgCost}]
+    let soundEnabled = safeJSONParse(localStorage.getItem('cw_sound_enabled'), true);
+    let compareSymbol = null;
+    let compareSeries = null;
+    let compareCandles = [];
+    let compareSocket = null;
+    let fundingPollTimer = null;
+    let aiInsightLoading = false;
+
+    // Curated list of widely recognized, frequently searched coins for the quick-select strip.
+    // Kept separate from the full Binance listing so it stays stable and predictable regardless
+    // of which obscure symbols happen to sort highest by volume that day.
+    const POPULAR_COINS = ['BTC', 'ETH', 'SOL', 'BNB', 'XRP', 'DOGE', 'ADA', 'AVAX', 'LINK', 'DOT', 'TRX', 'MATIC', 'LTC', 'SHIB', 'UNI', 'ATOM', 'NEAR', 'APT', 'ARB', 'OP', 'TON', 'ICP', 'FIL', 'SUI', 'PEPE', 'INJ'];
 
     function safeJSONParse(str, fallback) {
         try {
@@ -476,6 +596,9 @@
             refreshArrayDataList();
             renderTableHTMLStructure();
             updateMoverStrip();
+            populateSymbolDatalists();
+            renderPopularCoinsStrip();
+            renderPortfolio();
             setInterval(updateMoverStrip, 15000);
 
             loading.classList.add('hidden');
@@ -612,6 +735,77 @@
         }
     }
 
+    // ---------- CSV export ----------
+    function exportVisibleRowsToCSV() {
+        const term = searchInput.value.toUpperCase().trim();
+        let filtered = globalMarketList.filter(item => item.symbol.includes(term) || item.baseAsset.includes(term));
+        if (currentFilter === 'spot') filtered = filtered.filter(item => !item.isFutures);
+        if (currentFilter === 'futures') filtered = filtered.filter(item => item.isFutures);
+        if (currentFilter === 'watchlist') filtered = filtered.filter(item => watchlist.includes(item.id));
+        if (currentFilter === 'gainers') filtered = [...filtered].filter(i => i.volume > 500000).sort((a, b) => b.changePct - a.changePct);
+        if (currentFilter === 'losers') filtered = [...filtered].filter(i => i.volume > 500000).sort((a, b) => a.changePct - b.changePct);
+
+        if (filtered.length === 0) { showToast('Nothing to export for this filter.', 'error'); return; }
+
+        const header = ['Asset', 'Market', 'Symbol', 'Price', 'Volume(USDT)', '24hChange%', '24hHigh', '24hLow'];
+        const lines = [header.join(',')];
+        filtered.slice(0, 100).forEach(item => {
+            lines.push([
+                item.baseAsset, item.isFutures ? 'Futures' : 'Spot', item.symbol,
+                item.price, item.volume.toFixed(2), item.changePct.toFixed(2), item.high, item.low
+            ].join(','));
+        });
+
+        const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `cryptowatch_${currentFilter}_${Date.now()}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast(`Exported ${filtered.slice(0, 100).length} rows to CSV.`, 'success');
+    }
+    document.getElementById('export-csv-btn').addEventListener('click', exportVisibleRowsToCSV);
+
+    // ---------- Symbol datalists (portfolio + compare autocomplete) ----------
+    function populateSymbolDatalists() {
+        const bases = Array.from(new Set(globalMarketList.filter(a => !a.isFutures).map(a => a.baseAsset))).sort();
+        const holdingList = document.getElementById('holding-symbol-list');
+        const compareList = document.getElementById('compare-symbol-list');
+        const optsHtml = bases.map(b => `<option value="${b}"></option>`).join('');
+        if (holdingList) holdingList.innerHTML = optsHtml;
+        if (compareList) compareList.innerHTML = optsHtml;
+    }
+
+    // ---------- Popular coins quick-select ----------
+    function renderPopularCoinsStrip() {
+        const strip = document.getElementById('popular-coins-strip');
+        if (!strip) return;
+        const available = POPULAR_COINS.filter(base => marketMap[`${base}USDT_S`] || marketMap[`${base}USDT_F`]);
+        strip.innerHTML = available.map(base => {
+            const asset = marketMap[`${base}USDT_S`] || marketMap[`${base}USDT_F`];
+            const isActive = selectedAsset && selectedAsset.baseAsset === base && !selectedAsset.isFutures === !!marketMap[`${base}USDT_S`];
+            const up = asset.changePct >= 0;
+            return `<button class="popular-coin-chip text-[11px] px-2.5 py-1 rounded-full border transition-all cursor-pointer flex items-center gap-1.5 ${isActive ? 'bg-[#0ecb81] border-[#0ecb81] text-[#0b0e11] font-bold' : 'bg-gray-900 border-gray-800/80 text-gray-300 hover:border-gray-600'}" data-base="${base}">
+                <span>${base}</span><span class="${isActive ? '' : (up ? 'text-[#0ecb81]' : 'text-[#f6465d]')} font-mono text-[10px]">${up ? '+' : ''}${asset.changePct.toFixed(1)}%</span>
+            </button>`;
+        }).join('');
+
+        strip.querySelectorAll('.popular-coin-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                const base = chip.getAttribute('data-base');
+                const asset = marketMap[`${base}USDT_S`] || marketMap[`${base}USDT_F`];
+                if (asset) {
+                    selectAsset(asset);
+                    searchInput.value = '';
+                    renderTableHTMLStructure();
+                }
+            });
+        });
+    }
+
     function toggleWatchlistAsset(assetId, element) {
         const idx = watchlist.indexOf(assetId);
         if (idx > -1) {
@@ -744,6 +938,8 @@
                 setTimeout(() => priceCell.className = "py-3 px-3 text-right font-mono price-cell text-gray-100", 400);
             }
         }
+
+        if (!asset.isFutures && holdings.some(h => h.symbol === asset.baseAsset)) renderPortfolio();
     }
 
     // ---------- Asset selection ----------
@@ -761,6 +957,10 @@
         connectTradesStream();
         startBookAndTradesPolling();
         renderAlertsList();
+        startFundingPolling();
+        clearCompareOverlay(true);
+        renderPopularCoinsStrip();
+        resetAIInsightPanel();
     }
 
     function updateHUDDisplayValues(item) {
@@ -778,6 +978,8 @@
         const badge = document.getElementById('chart-market-badge');
         badge.innerText = item.isFutures ? 'Perpetual Futures' : 'Spot Cash';
         badge.className = item.isFutures ? 'text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+
+        updateRangeBar(item);
     }
 
     // ---------- Indicator math ----------
@@ -982,6 +1184,10 @@
         const myToken = ++chartRequestToken;
         if (chartReconnectTimeout) clearTimeout(chartReconnectTimeout);
         if (chartSocket) { chartSocket.onclose = null; try { chartSocket.close(); } catch (e) {} chartSocket = null; }
+        if (compareSocket) { compareSocket.onclose = null; try { compareSocket.close(); } catch (e) {} compareSocket = null; }
+        compareSeries = null; compareCandles = []; compareSymbol = null;
+        const compareClearBtn = document.getElementById('compare-clear-btn');
+        if (compareClearBtn) compareClearBtn.classList.add('hidden');
 
         document.getElementById('chart-title').innerText = `${selectedAsset.baseAsset}/USDT`;
         document.getElementById('chart-ticker-sym').innerText = `Matrix engine tracking: ${selectedAsset.symbol} (${currentInterval})`;
@@ -1397,6 +1603,7 @@
                 changed = true;
                 const msg = `${asset.baseAsset} ${a.direction === 'above' ? 'rose above' : 'fell below'} $${a.target}`;
                 showToast(msg, a.direction === 'above' ? 'success' : 'error');
+                playAlertBeep();
                 if ('Notification' in window && Notification.permission === 'granted') {
                     new Notification('CryptoWatch Pro Alert', { body: msg });
                 }
@@ -1426,6 +1633,424 @@
     document.getElementById('alert-bell').addEventListener('click', () => {
         document.getElementById('alert-price-input').focus();
         requestNotificationPermission();
+    });
+
+    // ---------- Portfolio tracker ----------
+    function findSpotAssetByBase(base) {
+        const upper = base.toUpperCase().trim();
+        return marketMap[`${upper}USDT_S`] || marketMap[`${upper}USDT_F`] || null;
+    }
+
+    function renderPortfolio() {
+        const tbody = document.getElementById('portfolio-rows');
+        if (!tbody) return;
+
+        if (holdings.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-gray-600 text-[11px]">No holdings added yet — track quantities to see live portfolio value.</td></tr>`;
+            document.getElementById('portfolio-total-value').innerText = '$0.00';
+            const pnlEl = document.getElementById('portfolio-total-pnl');
+            pnlEl.innerText = '$0.00';
+            pnlEl.className = 'text-sm font-mono font-bold text-gray-400';
+            return;
+        }
+
+        let totalValue = 0, totalCostBasis = 0, hasCostBasis = false;
+
+        tbody.innerHTML = holdings.map(h => {
+            const asset = findSpotAssetByBase(h.symbol);
+            const price = asset ? asset.price : 0;
+            const value = price * h.qty;
+            totalValue += value;
+            let pnlHtml = '<span class="text-gray-600">--</span>';
+            if (h.avgCost && h.avgCost > 0) {
+                hasCostBasis = true;
+                const costBasis = h.avgCost * h.qty;
+                totalCostBasis += costBasis;
+                const pnl = value - costBasis;
+                const pnlPct = costBasis > 0 ? (pnl / costBasis) * 100 : 0;
+                const pnlColor = pnl >= 0 ? 'text-[#0ecb81]' : 'text-[#f6465d]';
+                pnlHtml = `<span class="${pnlColor}">${pnl >= 0 ? '+' : ''}$${pnl.toLocaleString(undefined, { maximumFractionDigits: 2 })} (${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%)</span>`;
+            }
+            return `
+                <tr class="hover:bg-gray-800/40 transition-colors">
+                    <td class="py-2 px-3 font-bold text-white">${h.symbol}${!asset ? ' <span class=\"text-[9px] text-gray-600\">(unlisted)</span>' : ''}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">${h.qty}</td>
+                    <td class="py-2 px-3 text-right text-gray-500">${h.avgCost ? '$' + h.avgCost : '--'}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">${price ? '$' + price.toLocaleString(undefined, priceFmt(price)) : '--'}</td>
+                    <td class="py-2 px-3 text-right text-white font-bold">$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
+                    <td class="py-2 px-3 text-right">${pnlHtml}</td>
+                    <td class="py-2 px-3 text-center"><button class="text-gray-500 hover:text-[#f6465d] cursor-pointer holding-remove" data-id="${h.id}">✕</button></td>
+                </tr>
+            `;
+        }).join('');
+
+        document.getElementById('portfolio-total-value').innerText = `$${totalValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+        const pnlEl = document.getElementById('portfolio-total-pnl');
+        if (hasCostBasis) {
+            const totalPnl = totalValue - totalCostBasis;
+            const totalPnlPct = totalCostBasis > 0 ? (totalPnl / totalCostBasis) * 100 : 0;
+            pnlEl.innerText = `${totalPnl >= 0 ? '+' : ''}$${totalPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })} (${totalPnlPct >= 0 ? '+' : ''}${totalPnlPct.toFixed(2)}%)`;
+            pnlEl.className = `text-sm font-mono font-bold ${totalPnl >= 0 ? 'text-[#0ecb81]' : 'text-[#f6465d]'}`;
+        } else {
+            pnlEl.innerText = '-- (add avg cost)';
+            pnlEl.className = 'text-sm font-mono font-bold text-gray-500';
+        }
+
+        tbody.querySelectorAll('.holding-remove').forEach(btn => {
+            btn.addEventListener('click', () => {
+                holdings = holdings.filter(h => h.id !== btn.getAttribute('data-id'));
+                localStorage.setItem('cw_holdings', JSON.stringify(holdings));
+                renderPortfolio();
+            });
+        });
+    }
+
+    document.getElementById('holding-add-btn').addEventListener('click', () => {
+        const symbolInput = document.getElementById('holding-symbol-input');
+        const qtyInput = document.getElementById('holding-qty-input');
+        const costInput = document.getElementById('holding-cost-input');
+        const symbol = symbolInput.value.toUpperCase().trim();
+        const qty = parseFloat(qtyInput.value);
+        const avgCost = parseFloat(costInput.value);
+
+        if (!symbol) { showToast('Enter an asset symbol, e.g. BTC.', 'error'); return; }
+        if (isNaN(qty) || qty <= 0) { showToast('Enter a valid quantity.', 'error'); return; }
+        if (!findSpotAssetByBase(symbol)) { showToast(`${symbol} isn't a tracked USDT market.`, 'error'); return; }
+
+        holdings.push({
+            id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            symbol, qty,
+            avgCost: !isNaN(avgCost) && avgCost > 0 ? avgCost : null
+        });
+        localStorage.setItem('cw_holdings', JSON.stringify(holdings));
+        symbolInput.value = ''; qtyInput.value = ''; costInput.value = '';
+        renderPortfolio();
+        showToast(`Added ${qty} ${symbol} to portfolio.`, 'success');
+    });
+
+    // ---------- Sound alerts ----------
+    let audioCtx = null;
+    function playAlertBeep() {
+        if (!soundEnabled) return;
+        try {
+            audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.001, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+            osc.connect(gain).connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        } catch (e) { /* audio unsupported/blocked — silent no-op */ }
+    }
+
+    function syncSoundButton() {
+        const btn = document.getElementById('sound-toggle-btn');
+        if (btn) btn.innerText = soundEnabled ? '🔊' : '🔇';
+    }
+    syncSoundButton();
+    document.getElementById('sound-toggle-btn').addEventListener('click', () => {
+        soundEnabled = !soundEnabled;
+        localStorage.setItem('cw_sound_enabled', JSON.stringify(soundEnabled));
+        syncSoundButton();
+        showToast(soundEnabled ? 'Alert sound enabled.' : 'Alert sound muted.', 'info');
+    });
+
+    // ---------- Chart symbol compare overlay ----------
+    async function loadCompareOverlay(symbol) {
+        clearCompareOverlay(false);
+        if (!chartInstance || !selectedAsset) return;
+        compareSymbol = symbol.toUpperCase().trim();
+        const targetSymbol = `${compareSymbol}USDT`;
+
+        try {
+            const endpoint = `https://api.binance.com/api/v3/klines?symbol=${targetSymbol}&interval=${currentInterval}&limit=300`;
+            const res = await fetchWithTimeout(endpoint, 12000);
+            if (!res.ok) throw new Error('Symbol not found on spot market.');
+            const data = await res.json();
+            if (!Array.isArray(data) || data.length === 0) throw new Error('No data for that symbol.');
+
+            compareCandles = data.map(d => ({ time: Math.floor(d[0] / 1000), close: parseFloat(d[4]) }));
+            const base = compareCandles[0].close;
+            compareSeries = chartInstance.addLineSeries({
+                color: '#24a0e5', lineWidth: 2, priceScaleId: 'compare-scale',
+                title: `${compareSymbol} %`, priceLineVisible: false, crosshairMarkerVisible: true
+            });
+            chartInstance.priceScale('compare-scale').applyOptions({ visible: false });
+            compareSeries.setData(compareCandles.map(c => ({ time: c.time, value: ((c.close - base) / base) * 100 })));
+
+            document.getElementById('compare-clear-btn').classList.remove('hidden');
+            showToast(`Comparing ${selectedAsset.baseAsset} vs ${compareSymbol} (% change)`, 'info');
+
+            if (compareSocket) { compareSocket.onclose = null; try { compareSocket.close(); } catch (e) {} }
+            compareSocket = new WebSocket(`wss://stream.binance.com:9443/ws/${targetSymbol.toLowerCase()}@kline_${currentInterval}`);
+            compareSocket.onmessage = (event) => {
+                let msg;
+                try { msg = JSON.parse(event.data); } catch (e) { return; }
+                if (!msg || msg.e !== 'kline' || !msg.k || !compareSeries) return;
+                const close = parseFloat(msg.k.c);
+                const base0 = compareCandles.length ? compareCandles[0].close : close;
+                compareSeries.update({ time: Math.floor(msg.k.t / 1000), value: ((close - base0) / base0) * 100 });
+            };
+        } catch (err) {
+            showToast(`Compare failed: ${(err && err.message) || 'unknown error'}`, 'error');
+            clearCompareOverlay(true);
+        }
+    }
+
+    function clearCompareOverlay(resetInput) {
+        if (compareSocket) { compareSocket.onclose = null; try { compareSocket.close(); } catch (e) {} compareSocket = null; }
+        if (compareSeries && chartInstance) { try { chartInstance.removeSeries(compareSeries); } catch (e) {} }
+        compareSeries = null;
+        compareCandles = [];
+        compareSymbol = null;
+        document.getElementById('compare-clear-btn').classList.add('hidden');
+        if (resetInput) document.getElementById('compare-input').value = '';
+    }
+
+    document.getElementById('compare-input').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.value.trim()) loadCompareOverlay(e.target.value.trim());
+    });
+    document.getElementById('compare-clear-btn').addEventListener('click', () => clearCompareOverlay(true));
+
+    // ---------- AI Market Insight ----------
+    function getStoredApiKey() {
+        return localStorage.getItem('cw_anthropic_api_key') || '';
+    }
+
+    function syncAIKeyUI() {
+        const hasKey = !!getStoredApiKey();
+        const toggleBtn = document.getElementById('ai-key-toggle-btn');
+        if (toggleBtn) {
+            toggleBtn.innerText = hasKey ? '⚙ API Key ✓' : '⚙ API Key';
+            toggleBtn.classList.toggle('text-[#0ecb81]', hasKey);
+            toggleBtn.classList.toggle('border-[#0ecb81]/40', hasKey);
+        }
+    }
+
+    document.getElementById('ai-key-toggle-btn').addEventListener('click', () => {
+        const panel = document.getElementById('ai-key-panel');
+        panel.classList.toggle('hidden');
+        if (!panel.classList.contains('hidden')) document.getElementById('ai-key-input').focus();
+    });
+
+    document.getElementById('ai-key-save-btn').addEventListener('click', () => {
+        const input = document.getElementById('ai-key-input');
+        const key = input.value.trim();
+        if (!key) { showToast('Paste a valid Anthropic API key first.', 'error'); return; }
+        localStorage.setItem('cw_anthropic_api_key', key);
+        input.value = '';
+        syncAIKeyUI();
+        document.getElementById('ai-key-panel').classList.add('hidden');
+        showToast('API key saved to this browser.', 'success');
+    });
+
+    document.getElementById('ai-key-clear-btn').addEventListener('click', () => {
+        localStorage.removeItem('cw_anthropic_api_key');
+        syncAIKeyUI();
+        showToast('API key removed.', 'info');
+    });
+
+    syncAIKeyUI();
+
+    function resetAIInsightPanel() {
+        const label = document.getElementById('ai-asset-label');
+        const body = document.getElementById('ai-insight-body');
+        if (label) label.innerText = selectedAsset ? `— ${selectedAsset.baseAsset}/USDT (${selectedAsset.isFutures ? 'Futures' : 'Spot'})` : '';
+        if (body) body.innerHTML = `<p class="text-gray-600 text-[11px]">Click "Analyze Selected Coin" for a plain-English read of ${selectedAsset ? selectedAsset.baseAsset + "'s" : "this asset's"} current technical setup — trend, momentum, and nearby support/resistance based on live price data.</p>`;
+    }
+
+    function buildAIContextSummary() {
+        if (!selectedAsset || cachedCandlesArray.length < 20) return null;
+        const closes = cachedCandlesArray.map(c => c.close);
+        const recent = closes.slice(-30);
+        const ma7 = calculateSMA(cachedCandlesArray, 7);
+        const ma25 = calculateSMA(cachedCandlesArray, 25);
+        const rsi = calculateRSI(cachedCandlesArray, 14);
+        const lastMa7 = ma7.length ? ma7[ma7.length - 1].value : null;
+        const lastMa25 = ma25.length ? ma25[ma25.length - 1].value : null;
+        const lastRsi = rsi.length ? rsi[rsi.length - 1].value : null;
+        const recentHigh = Math.max(...cachedCandlesArray.slice(-60).map(c => c.high));
+        const recentLow = Math.min(...cachedCandlesArray.slice(-60).map(c => c.low));
+
+        return {
+            asset: selectedAsset.baseAsset,
+            market: selectedAsset.isFutures ? 'perpetual futures' : 'spot',
+            interval: currentInterval,
+            price: selectedAsset.price,
+            change24hPct: selectedAsset.changePct,
+            high24h: selectedAsset.high,
+            low24h: selectedAsset.low,
+            volume24hUSDT: selectedAsset.volume,
+            ma7: lastMa7,
+            ma25: lastMa25,
+            rsi14: lastRsi,
+            recentSwingHigh: recentHigh,
+            recentSwingLow: recentLow,
+            recentClosesTrend: recent
+        };
+    }
+
+    async function generateAIInsight() {
+        if (aiInsightLoading) return;
+        if (!selectedAsset) { showToast('Select an asset first.', 'error'); return; }
+
+        const apiKey = getStoredApiKey();
+        const body = document.getElementById('ai-insight-body');
+        if (!apiKey) {
+            document.getElementById('ai-key-panel').classList.remove('hidden');
+            document.getElementById('ai-key-input').focus();
+            body.innerHTML = `<p class="text-amber-400 text-[11px]">Add your Anthropic API key above to enable AI insights — it's free to create one at console.anthropic.com and only ever sent from your browser straight to Anthropic.</p>`;
+            return;
+        }
+
+        const ctx = buildAIContextSummary();
+        if (!ctx) { showToast('Not enough chart data loaded yet — try again in a moment.', 'error'); return; }
+
+        aiInsightLoading = true;
+        const btn = document.getElementById('ai-generate-btn');
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        body.innerHTML = `<div class="flex items-center gap-2 text-gray-500 text-xs"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-[#a855f7]"></div>Reading ${ctx.asset}'s recent price action...</div>`;
+
+        const systemPrompt = `You are a neutral technical-analysis assistant embedded in a crypto market dashboard. You will be given live market statistics (price, 24h change, moving averages, RSI, recent swing high/low, and a short recent-closes series) for one asset. Describe the CURRENT technical setup only — trend direction, momentum strength, and nearby support/resistance levels implied by the data. Do NOT recommend buying, selling, or holding. Do NOT promise or predict a specific future price. Do NOT use hedged-but-suggestive language that implies a trade recommendation. Be concise and factual, grounded only in the numbers given. Respond with ONLY a single valid JSON object, no markdown fences, no extra text, matching exactly this shape: {"trend":"bullish|bearish|neutral","momentum":"strong|moderate|weak","support":<number>,"resistance":<number>,"summary":"2-3 sentence plain-English technical read, factual and hedged, no trade calls"}`;
+
+        const userPrompt = `Market data for ${ctx.asset} (${ctx.market}, ${ctx.interval} chart):
+Price: $${ctx.price}
+24h change: ${ctx.change24hPct}%
+24h high: $${ctx.high24h}, 24h low: $${ctx.low24h}
+24h volume (USDT): ${ctx.volume24hUSDT}
+MA(7): ${ctx.ma7}, MA(25): ${ctx.ma25}
+RSI(14): ${ctx.rsi14}
+Recent swing high: $${ctx.recentSwingHigh}, recent swing low: $${ctx.recentSwingLow}
+Last 30 closes: ${JSON.stringify(ctx.recentClosesTrend)}`;
+
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 20000);
+            const res = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json',
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01',
+                    // Required for calling the API directly from browser JS instead of a backend.
+                    'anthropic-dangerous-direct-browser-access': 'true'
+                },
+                body: JSON.stringify({
+                    model: 'claude-sonnet-4-6',
+                    max_tokens: 1000,
+                    system: systemPrompt,
+                    messages: [{ role: 'user', content: userPrompt }]
+                }),
+                signal: controller.signal
+            });
+            clearTimeout(timer);
+
+            if (res.status === 401) throw new Error('Invalid API key — check the key you saved and try again.');
+            if (res.status === 429) throw new Error('Rate limited by Anthropic — wait a moment and try again.');
+            if (!res.ok) {
+                const errBody = await res.json().catch(() => null);
+                throw new Error(errBody?.error?.message || `AI service responded with status ${res.status}`);
+            }
+
+            const data = await res.json();
+            const textBlocks = (data.content || []).filter(b => b.type === 'text').map(b => b.text);
+            const rawText = textBlocks.join('\n').trim();
+            const cleaned = rawText.replace(/^```json\s*/i, '').replace(/```$/, '').trim();
+            const parsed = JSON.parse(cleaned);
+            renderAIInsight(parsed, ctx);
+        } catch (err) {
+            const msg = (err && err.name === 'AbortError') ? 'Request timed out — try again.' : ((err && err.message) || 'Unknown error contacting the AI service.');
+            body.innerHTML = `<p class="text-[#f6465d] text-[11px]">Couldn't generate an insight: ${msg}</p>`;
+        } finally {
+            aiInsightLoading = false;
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        }
+    }
+
+    function renderAIInsight(parsed, ctx) {
+        const body = document.getElementById('ai-insight-body');
+        const trendColor = parsed.trend === 'bullish' ? 'text-[#0ecb81] bg-[#0ecb81]/10 border-[#0ecb81]/30' : parsed.trend === 'bearish' ? 'text-[#f6465d] bg-[#f6465d]/10 border-[#f6465d]/30' : 'text-gray-300 bg-gray-800 border-gray-700';
+        const momentumColor = parsed.momentum === 'strong' ? 'text-amber-400 bg-amber-500/10 border-amber-500/30' : 'text-gray-300 bg-gray-800 border-gray-700';
+
+        body.innerHTML = `
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+                <span class="text-[10px] font-bold uppercase px-2 py-1 rounded border ${trendColor}">Trend: ${parsed.trend}</span>
+                <span class="text-[10px] font-bold uppercase px-2 py-1 rounded border ${momentumColor}">Momentum: ${parsed.momentum}</span>
+                <span class="text-[10px] font-mono px-2 py-1 rounded border border-gray-800 text-gray-400">Support ~$${Number(parsed.support).toLocaleString(undefined, priceFmt(parsed.support))}</span>
+                <span class="text-[10px] font-mono px-2 py-1 rounded border border-gray-800 text-gray-400">Resistance ~$${Number(parsed.resistance).toLocaleString(undefined, priceFmt(parsed.resistance))}</span>
+            </div>
+            <p class="text-gray-300 text-[12px] leading-relaxed">${parsed.summary}</p>
+            <p class="text-gray-600 text-[9px] mt-3">Based on ${ctx.interval} chart data for ${ctx.asset} as of ${new Date().toLocaleTimeString(undefined, { hour12: false })}.</p>
+        `;
+    }
+
+    document.getElementById('ai-generate-btn').addEventListener('click', generateAIInsight);
+
+    // ---------- Futures funding rate ----------
+    function stopFundingPolling() {
+        if (fundingPollTimer) { clearInterval(fundingPollTimer); fundingPollTimer = null; }
+        document.getElementById('hud-funding-wrap').classList.add('hidden');
+    }
+
+    async function pollFundingRate() {
+        if (!selectedAsset || !selectedAsset.isFutures) return;
+        const mySymbol = selectedAsset.symbol;
+        try {
+            const res = await fetchWithTimeout(`https://fapi.binance.com/fapi/v1/premiumIndex?symbol=${mySymbol}`, 8000);
+            if (!res.ok || !selectedAsset || selectedAsset.symbol !== mySymbol) return;
+            const data = await res.json();
+            if (!selectedAsset || selectedAsset.symbol !== mySymbol) return;
+            const rate = parseFloat(data.lastFundingRate) * 100;
+            const nextTime = parseInt(data.nextFundingTime, 10);
+            const mins = Math.max(0, Math.round((nextTime - Date.now()) / 60000));
+            const h = Math.floor(mins / 60), m = mins % 60;
+            const el = document.getElementById('hud-funding');
+            el.innerText = `${rate >= 0 ? '+' : ''}${rate.toFixed(4)}% / ${h}h ${m}m`;
+            el.className = `text-sm font-mono font-bold ${rate >= 0 ? 'text-[#0ecb81]' : 'text-[#f6465d]'}`;
+            document.getElementById('hud-funding-wrap').classList.remove('hidden');
+        } catch (e) { /* transient — next tick retries */ }
+    }
+
+    function startFundingPolling() {
+        stopFundingPolling();
+        if (!selectedAsset || !selectedAsset.isFutures) return;
+        pollFundingRate();
+        fundingPollTimer = setInterval(pollFundingRate, 30000);
+    }
+
+    // ---------- 24h range position bar ----------
+    function updateRangeBar(item) {
+        const low = item.low || 0, high = item.high || 0, price = item.price || 0;
+        const precision = price < 1 ? 5 : 2;
+        document.getElementById('range-low-label').innerText = `$${low.toLocaleString(undefined, priceFmt(low))}`;
+        document.getElementById('range-high-label').innerText = `$${high.toLocaleString(undefined, priceFmt(high))}`;
+        let pct = 50;
+        if (high > low) pct = Math.min(100, Math.max(0, ((price - low) / (high - low)) * 100));
+        document.getElementById('range-marker').style.left = `${pct}%`;
+    }
+
+    // ---------- Keyboard shortcuts ----------
+    document.addEventListener('keydown', (e) => {
+        const tag = (e.target.tagName || '').toLowerCase();
+        const isTyping = tag === 'input' || tag === 'textarea' || tag === 'select';
+        if (e.key === '/' && !isTyping) {
+            e.preventDefault();
+            searchInput.focus();
+        } else if (e.key === 'Escape') {
+            if (document.activeElement === searchInput) {
+                searchInput.value = '';
+                renderTableHTMLStructure();
+                searchInput.blur();
+            } else {
+                document.activeElement && document.activeElement.blur && document.activeElement.blur();
+            }
+        }
     });
 
     // ---------- Fullscreen ----------
