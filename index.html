@@ -1894,21 +1894,56 @@
         };
     }
 
+    // Deterministic, rule-based read computed entirely client-side from data already on the page
+    // (no AI model, no network call). Used whenever no API key is saved, so the panel still gives
+    // the person something useful — it's explicitly labeled as non-AI wherever it's shown.
+    function computeLocalTechnicalRead(ctx) {
+        const closes = ctx.recentClosesTrend;
+        const first = closes[0], last = closes[closes.length - 1];
+        const netMovePct = first ? ((last - first) / first) * 100 : 0;
+
+        let trend = 'neutral';
+        if (ctx.ma7 !== null && ctx.ma25 !== null) {
+            if (ctx.ma7 > ctx.ma25 && netMovePct > 0.15) trend = 'bullish';
+            else if (ctx.ma7 < ctx.ma25 && netMovePct < -0.15) trend = 'bearish';
+        }
+
+        let momentum = 'moderate';
+        if (ctx.rsi14 !== null) {
+            if (ctx.rsi14 >= 70 || ctx.rsi14 <= 30) momentum = 'strong';
+            else if (ctx.rsi14 > 45 && ctx.rsi14 < 55) momentum = 'weak';
+        }
+
+        const support = ctx.recentSwingLow;
+        const resistance = ctx.recentSwingHigh;
+        const rsiNote = ctx.rsi14 !== null
+            ? (ctx.rsi14 >= 70 ? `RSI(14) reads ${ctx.rsi14.toFixed(1)}, in overbought territory.` : ctx.rsi14 <= 30 ? `RSI(14) reads ${ctx.rsi14.toFixed(1)}, in oversold territory.` : `RSI(14) reads ${ctx.rsi14.toFixed(1)}, a neutral level.`)
+            : '';
+        const maNote = (ctx.ma7 !== null && ctx.ma25 !== null)
+            ? (ctx.ma7 > ctx.ma25 ? 'The short-term MA(7) sits above the longer MA(25).' : 'The short-term MA(7) sits below the longer MA(25).')
+            : '';
+
+        return {
+            trend, momentum, support, resistance,
+            summary: `Over the visible window, ${ctx.asset} moved ${netMovePct >= 0 ? '+' : ''}${netMovePct.toFixed(2)}% from the first close shown to the latest. ${maNote} ${rsiNote}`.trim(),
+            isLocalCalculation: true
+        };
+    }
+
     async function generateAIInsight() {
         if (aiInsightLoading) return;
         if (!selectedAsset) { showToast('Select an asset first.', 'error'); return; }
 
         const apiKey = getStoredApiKey();
         const body = document.getElementById('ai-insight-body');
-        if (!apiKey) {
-            document.getElementById('ai-key-panel').classList.remove('hidden');
-            document.getElementById('ai-key-input').focus();
-            body.innerHTML = `<p class="text-amber-400 text-[11px]">Add your Anthropic API key above to enable AI insights — it's free to create one at console.anthropic.com and only ever sent from your browser straight to Anthropic.</p>`;
-            return;
-        }
-
         const ctx = buildAIContextSummary();
         if (!ctx) { showToast('Not enough chart data loaded yet — try again in a moment.', 'error'); return; }
+
+        if (!apiKey) {
+            const localRead = computeLocalTechnicalRead(ctx);
+            renderAIInsight(localRead, ctx);
+            return;
+        }
 
         aiInsightLoading = true;
         const btn = document.getElementById('ai-generate-btn');
@@ -1978,7 +2013,18 @@ Last 30 closes: ${JSON.stringify(ctx.recentClosesTrend)}`;
         const trendColor = parsed.trend === 'bullish' ? 'text-[#0ecb81] bg-[#0ecb81]/10 border-[#0ecb81]/30' : parsed.trend === 'bearish' ? 'text-[#f6465d] bg-[#f6465d]/10 border-[#f6465d]/30' : 'text-gray-300 bg-gray-800 border-gray-700';
         const momentumColor = parsed.momentum === 'strong' ? 'text-amber-400 bg-amber-500/10 border-amber-500/30' : 'text-gray-300 bg-gray-800 border-gray-700';
 
+        const sourceBanner = parsed.isLocalCalculation
+            ? `<div class="mb-3 px-3 py-2 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300 text-[10.5px] leading-relaxed flex gap-2">
+                 <span>⚠️</span>
+                 <span><strong>Not AI-generated.</strong> No API key is set, so this reading was calculated directly by this page's own code from RSI/moving-average math — not by an AI model. Add an API key above for an actual AI-generated read.</span>
+               </div>`
+            : `<div class="mb-3 px-3 py-2 rounded border border-[#a855f7]/30 bg-[#a855f7]/10 text-[#c084fc] text-[10.5px] leading-relaxed flex gap-2">
+                 <span>🤖</span>
+                 <span>AI-generated read from Claude, based on the live indicators below.</span>
+               </div>`;
+
         body.innerHTML = `
+            ${sourceBanner}
             <div class="flex flex-wrap items-center gap-2 mb-3">
                 <span class="text-[10px] font-bold uppercase px-2 py-1 rounded border ${trendColor}">Trend: ${parsed.trend}</span>
                 <span class="text-[10px] font-bold uppercase px-2 py-1 rounded border ${momentumColor}">Momentum: ${parsed.momentum}</span>
@@ -1987,6 +2033,7 @@ Last 30 closes: ${JSON.stringify(ctx.recentClosesTrend)}`;
             </div>
             <p class="text-gray-300 text-[12px] leading-relaxed">${parsed.summary}</p>
             <p class="text-gray-600 text-[9px] mt-3">Based on ${ctx.interval} chart data for ${ctx.asset} as of ${new Date().toLocaleTimeString(undefined, { hour12: false })}.</p>
+            <p class="mt-3 px-3 py-2 rounded border border-gray-800 bg-gray-900/60 text-gray-500 text-[9.5px] leading-relaxed">⚠️ ${parsed.isLocalCalculation ? 'This is a locally calculated technical summary, not financial advice.' : 'This is an automated AI technical read, not financial advice.'} It is not a guarantee of future price movement and can be wrong. Always do your own research before trading.</p>
         `;
     }
 
