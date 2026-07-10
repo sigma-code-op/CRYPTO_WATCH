@@ -70,6 +70,42 @@
             </div>
         </div>
 
+        <!-- Global Market Pulse -->
+        <div class="mb-6 bg-[#181a20] border border-gray-800 rounded-lg shadow-2xl overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-gray-800 bg-[#1e222b] flex justify-between items-center flex-wrap gap-2">
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-400">🌐 Global Market Pulse</span>
+                <span class="text-[9px] text-gray-600">via CoinGecko &amp; Alternative.me</span>
+            </div>
+            <div class="px-6 py-3 flex items-center flex-wrap gap-6">
+                <div>
+                    <span class="text-[10px] text-gray-500 block uppercase font-bold">Total Market Cap</span>
+                    <span id="pulse-mcap" class="text-sm font-mono font-bold text-white">--</span>
+                    <span id="pulse-mcap-chg" class="text-[10px] font-mono font-bold ml-1">--</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-gray-500 block uppercase font-bold">24h Volume</span>
+                    <span id="pulse-vol" class="text-sm font-mono font-bold text-gray-300">--</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-gray-500 block uppercase font-bold">BTC Dominance</span>
+                    <span id="pulse-btcdom" class="text-sm font-mono font-bold text-amber-400">--</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div>
+                        <span class="text-[10px] text-gray-500 block uppercase font-bold">Fear &amp; Greed</span>
+                        <span id="pulse-fng-value" class="text-sm font-mono font-bold text-gray-300">--</span>
+                    </div>
+                    <span id="pulse-fng-label" class="text-[9px] font-bold uppercase px-2 py-1 rounded border border-gray-700 text-gray-400">--</span>
+                </div>
+                <div class="flex items-center gap-1.5 flex-wrap ml-auto">
+                    <span class="text-[9px] uppercase font-bold text-gray-600 tracking-wider px-1">🔥 Trending:</span>
+                    <div id="trending-coins-strip" class="flex items-center gap-1 flex-wrap">
+                        <span class="text-gray-600 text-[10px]">Loading...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Terminal Grid Layout -->
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
@@ -181,6 +217,19 @@
                         <div id="range-marker" class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-white border-2 border-[#0b0e11] shadow" style="left:50%;"></div>
                     </div>
                     <span id="range-high-label" class="text-[10px] font-mono text-gray-500 w-16 shrink-0 text-right">--</span>
+                </div>
+
+                <!-- Long-Term Performance -->
+                <div class="bg-[#181a20] border border-gray-800 rounded-lg px-6 py-2.5 shadow-xl flex items-center gap-6">
+                    <span class="text-[9px] uppercase font-bold text-gray-500 tracking-wider">Performance:</span>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] text-gray-500 font-bold uppercase">7D</span>
+                        <span id="perf-7d" class="text-xs font-mono font-bold text-gray-400">--</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <span class="text-[10px] text-gray-500 font-bold uppercase">30D</span>
+                        <span id="perf-30d" class="text-xs font-mono font-bold text-gray-400">--</span>
+                    </div>
                 </div>
 
                 <!-- Comprehensive Timeframe & Technical Analysis Toolbars -->
@@ -323,6 +372,18 @@
             </div>
         </div>
 
+        <!-- Asset Notes / Trade Journal -->
+        <div class="mt-6 bg-[#181a20] border border-gray-800 rounded-lg shadow-2xl overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-800 bg-[#1e222b] flex justify-between items-center flex-wrap gap-3">
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2">📝 Notes / Trade Journal <span id="notes-asset-label" class="text-gray-600 normal-case font-normal"></span></span>
+                <span id="notes-save-status" class="text-[9px] text-gray-600"></span>
+            </div>
+            <div class="p-4">
+                <textarea id="notes-textarea" rows="3" placeholder="Select an asset, then jot down levels to watch, why you entered a position, or anything else worth remembering..."
+                    class="w-full bg-gray-900 border border-gray-800 rounded text-xs px-3 py-2 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81] resize-y"></textarea>
+            </div>
+        </div>
+
         <!-- Portfolio Tracker -->
         <div class="mt-6 bg-[#181a20] border border-gray-800 rounded-lg shadow-2xl overflow-hidden">
             <div class="px-4 py-3 border-b border-gray-800 bg-[#1e222b] flex justify-between items-center flex-wrap gap-3">
@@ -401,6 +462,8 @@
     let compareSocket = null;
     let fundingPollTimer = null;
     let aiInsightLoading = false;
+    let assetNotes = safeJSONParse(localStorage.getItem('cw_notes'), {}); // { assetId: text }
+    let notesSaveTimer = null;
 
     // Curated list of widely recognized, frequently searched coins for the quick-select strip.
     // Kept separate from the full Binance listing so it stays stable and predictable regardless
@@ -601,6 +664,11 @@
             renderPortfolio();
             setInterval(updateMoverStrip, 15000);
 
+            fetchGlobalMarketPulse();
+            fetchTrendingCoins();
+            setInterval(fetchGlobalMarketPulse, 60000);
+            setInterval(fetchTrendingCoins, 120000);
+
             loading.classList.add('hidden');
             initError.classList.add('hidden');
             tableContainer.classList.remove('hidden');
@@ -657,6 +725,76 @@
 
     function refreshArrayDataList() {
         globalMarketList = Object.values(marketMap).sort((a, b) => b.volume - a.volume);
+    }
+
+    // ---------- Global Market Pulse (CoinGecko + Alternative.me — independent of Binance) ----------
+    async function fetchGlobalMarketPulse() {
+        try {
+            const res = await fetchWithTimeout('https://api.coingecko.com/api/v3/global', 10000);
+            if (!res.ok) throw new Error(`CoinGecko global responded ${res.status}`);
+            const json = await res.json();
+            const d = json.data;
+            if (!d) return;
+
+            document.getElementById('pulse-mcap').innerText = `$${formatCompact(d.total_market_cap.usd)}`;
+            document.getElementById('pulse-vol').innerText = `$${formatCompact(d.total_volume.usd)}`;
+            document.getElementById('pulse-btcdom').innerText = `${d.market_cap_percentage.btc.toFixed(1)}%`;
+
+            const chgEl = document.getElementById('pulse-mcap-chg');
+            const chg = d.market_cap_change_percentage_24h_usd;
+            if (typeof chg === 'number') {
+                chgEl.innerText = `${chg >= 0 ? '+' : ''}${chg.toFixed(2)}%`;
+                chgEl.className = `text-[10px] font-mono font-bold ml-1 ${chg >= 0 ? 'text-[#0ecb81]' : 'text-[#f6465d]'}`;
+            }
+        } catch (e) {
+            console.warn('Global market pulse unavailable:', e.message);
+        }
+
+        try {
+            const res = await fetchWithTimeout('https://api.alternative.me/fng/?limit=1', 10000);
+            if (!res.ok) throw new Error(`Fear & Greed API responded ${res.status}`);
+            const json = await res.json();
+            const entry = json.data && json.data[0];
+            if (!entry) return;
+            const val = parseInt(entry.value, 10);
+            document.getElementById('pulse-fng-value').innerText = val;
+            const labelEl = document.getElementById('pulse-fng-label');
+            labelEl.innerText = entry.value_classification;
+            const color = val <= 24 ? 'text-[#f6465d] border-[#f6465d]/40' : val <= 44 ? 'text-amber-400 border-amber-400/40' : val <= 55 ? 'text-gray-300 border-gray-600' : val <= 75 ? 'text-[#0ecb81] border-[#0ecb81]/40' : 'text-[#0ecb81] border-[#0ecb81]/60';
+            labelEl.className = `text-[9px] font-bold uppercase px-2 py-1 rounded border ${color}`;
+        } catch (e) {
+            console.warn('Fear & Greed index unavailable:', e.message);
+        }
+    }
+
+    async function fetchTrendingCoins() {
+        const strip = document.getElementById('trending-coins-strip');
+        try {
+            const res = await fetchWithTimeout('https://api.coingecko.com/api/v3/search/trending', 10000);
+            if (!res.ok) throw new Error(`Trending API responded ${res.status}`);
+            const json = await res.json();
+            const coins = (json.coins || []).slice(0, 7).map(c => c.item);
+            if (coins.length === 0) { strip.innerHTML = '<span class="text-gray-600 text-[10px]">No trending data.</span>'; return; }
+
+            strip.innerHTML = coins.map(c => {
+                const sym = (c.symbol || '').toUpperCase();
+                const tracked = !!(marketMap[`${sym}USDT_S`] || marketMap[`${sym}USDT_F`]);
+                return `<button class="trending-chip text-[10px] px-2 py-1 rounded-full border transition-all cursor-pointer flex items-center gap-1 ${tracked ? 'bg-gray-900 border-gray-800/80 text-gray-300 hover:border-[#0ecb81]/50' : 'bg-gray-900/50 border-gray-800/40 text-gray-600 cursor-default'}" data-sym="${sym}" ${tracked ? '' : 'disabled'}>
+                    #${c.market_cap_rank || '?'} <span class="font-bold">${sym}</span>
+                </button>`;
+            }).join('');
+
+            strip.querySelectorAll('.trending-chip:not([disabled])').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    const sym = chip.getAttribute('data-sym');
+                    const asset = marketMap[`${sym}USDT_S`] || marketMap[`${sym}USDT_F`];
+                    if (asset) { selectAsset(asset); searchInput.value = ''; renderTableHTMLStructure(); }
+                });
+            });
+        } catch (e) {
+            console.warn('Trending coins unavailable:', e.message);
+            strip.innerHTML = '<span class="text-gray-600 text-[10px]">Unavailable right now.</span>';
+        }
     }
 
     function updateMoverStrip() {
@@ -961,6 +1099,8 @@
         clearCompareOverlay(true);
         renderPopularCoinsStrip();
         resetAIInsightPanel();
+        fetchLongTermPerformance(item);
+        renderNotesPanel();
     }
 
     function updateHUDDisplayValues(item) {
@@ -2038,6 +2178,73 @@ Last 30 closes: ${JSON.stringify(ctx.recentClosesTrend)}`;
     }
 
     document.getElementById('ai-generate-btn').addEventListener('click', generateAIInsight);
+
+    // ---------- 7D / 30D performance ----------
+    function resetPerformanceBar() {
+        document.getElementById('perf-7d').innerText = '--';
+        document.getElementById('perf-7d').className = 'text-xs font-mono font-bold text-gray-400';
+        document.getElementById('perf-30d').innerText = '--';
+        document.getElementById('perf-30d').className = 'text-xs font-mono font-bold text-gray-400';
+    }
+
+    async function fetchLongTermPerformance(asset) {
+        resetPerformanceBar();
+        try {
+            const endpoint = asset.isFutures
+                ? `https://fapi.binance.com/fapi/v1/klines?symbol=${asset.symbol}&interval=1d&limit=31`
+                : `https://api.binance.com/api/v3/klines?symbol=${asset.symbol}&interval=1d&limit=31`;
+            const res = await fetchWithTimeout(endpoint, 10000);
+            if (!res.ok || !selectedAsset || selectedAsset.id !== asset.id) return;
+            const data = await res.json();
+            if (!Array.isArray(data) || data.length < 2 || !selectedAsset || selectedAsset.id !== asset.id) return;
+
+            const closes = data.map(d => parseFloat(d[4]));
+            const latest = closes[closes.length - 1];
+
+            const render = (elId, daysAgo) => {
+                const idx = closes.length - 1 - daysAgo;
+                const el = document.getElementById(elId);
+                if (idx < 0) { el.innerText = 'n/a'; return; }
+                const past = closes[idx];
+                const pct = ((latest - past) / past) * 100;
+                el.innerText = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
+                el.className = `text-xs font-mono font-bold ${pct >= 0 ? 'text-[#0ecb81]' : 'text-[#f6465d]'}`;
+            };
+            render('perf-7d', 7);
+            render('perf-30d', 30);
+        } catch (e) { /* leave as -- on failure */ }
+    }
+
+    // ---------- Asset notes / trade journal ----------
+    function renderNotesPanel() {
+        const label = document.getElementById('notes-asset-label');
+        const textarea = document.getElementById('notes-textarea');
+        const status = document.getElementById('notes-save-status');
+        status.innerText = '';
+        if (!selectedAsset) {
+            label.innerText = '';
+            textarea.value = '';
+            textarea.disabled = true;
+            return;
+        }
+        textarea.disabled = false;
+        label.innerText = `— ${selectedAsset.baseAsset}/USDT`;
+        textarea.value = assetNotes[selectedAsset.id] || '';
+    }
+
+    document.getElementById('notes-textarea').addEventListener('input', (e) => {
+        if (!selectedAsset) return;
+        const status = document.getElementById('notes-save-status');
+        status.innerText = 'Saving...';
+        if (notesSaveTimer) clearTimeout(notesSaveTimer);
+        notesSaveTimer = setTimeout(() => {
+            const text = e.target.value;
+            if (text.trim()) assetNotes[selectedAsset.id] = text;
+            else delete assetNotes[selectedAsset.id];
+            localStorage.setItem('cw_notes', JSON.stringify(assetNotes));
+            status.innerText = `Saved ${new Date().toLocaleTimeString(undefined, { hour12: false })}`;
+        }, 600);
+    });
 
     // ---------- Futures funding rate ----------
     function stopFundingPolling() {
