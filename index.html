@@ -247,6 +247,7 @@
                     <div class="flex items-center gap-1.5">
                         <span class="text-[10px] uppercase font-bold text-gray-500 px-2 tracking-wider">Type:</span>
                         <button class="ctype-btn text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 transition-all cursor-pointer active" data-ctype="candles">Candles</button>
+                        <button class="ctype-btn text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 transition-all cursor-pointer" data-ctype="heikinashi">Heikin Ashi</button>
                         <button class="ctype-btn text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 transition-all cursor-pointer" data-ctype="line">Line</button>
                     </div>
 
@@ -254,8 +255,12 @@
                         <span class="text-[10px] uppercase font-bold text-gray-500 px-2 tracking-wider">Overlays:</span>
                         <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 active transition-all cursor-pointer" data-ind="ma7">MA(7)</button>
                         <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="ma25">MA(25)</button>
+                        <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="ema12">EMA(12)</button>
+                        <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="ema26">EMA(26)</button>
+                        <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="vwap">VWAP</button>
                         <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="bb">BB(20,2)</button>
                         <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="rsi">RSI(14)</button>
+                        <button class="ind-btn text-[11px] px-2 py-0.5 rounded bg-gray-900 border border-gray-800 text-gray-400 transition-all cursor-pointer" data-ind="macd">MACD</button>
                     </div>
 
                     <div class="flex items-center gap-1.5">
@@ -267,6 +272,9 @@
                     </div>
 
                     <button id="fullscreen-btn" title="Fullscreen chart" class="text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer ml-auto">⛶ Fullscreen</button>
+                    <button id="logscale-toggle-btn" title="Toggle logarithmic price scale" class="text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer">Log</button>
+                    <button id="reset-zoom-btn" title="Reset chart zoom" class="text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer">⤢ Reset Zoom</button>
+                    <button id="screenshot-btn" title="Download chart as PNG" class="text-[11px] px-2.5 py-1 rounded bg-gray-900 border border-gray-800/80 text-gray-400 hover:text-white transition-all cursor-pointer">📷 Save</button>
                 </div>
 
                 <!-- Main Chart Layout Card -->
@@ -290,6 +298,12 @@
                     <div id="rsi-panel" class="hidden mt-2">
                         <div class="text-[9px] uppercase font-bold text-gray-500 tracking-wider mb-1 px-1">RSI (14)</div>
                         <div id="rsi-workspace" class="w-full h-[110px] bg-[#181a20] rounded border border-gray-900 overflow-hidden"></div>
+                    </div>
+
+                    <!-- MACD Sub-panel -->
+                    <div id="macd-panel" class="hidden mt-2">
+                        <div class="text-[9px] uppercase font-bold text-gray-500 tracking-wider mb-1 px-1">MACD (12, 26, 9)</div>
+                        <div id="macd-workspace" class="w-full h-[110px] bg-[#181a20] rounded border border-gray-900 overflow-hidden"></div>
                     </div>
                 </div>
 
@@ -484,12 +498,21 @@
     let volumeSeries = null;
     let ma7Series = null;
     let ma25Series = null;
+    let ema12Series = null;
+    let ema26Series = null;
+    let vwapSeries = null;
     let bbUpperSeries = null;
     let bbBasisSeries = null;
     let bbLowerSeries = null;
     let rsiChartInstance = null;
     let rsiLineSeries = null;
+    let macdChartInstance = null;
+    let macdLineSeries = null;
+    let macdSignalSeries = null;
+    let macdHistSeries = null;
     let syncingRange = false;
+    let isLogScale = false;
+    let haCandlesArray = [];
 
     let resizeObserver = null;
     let chartSocket = null;
@@ -500,7 +523,7 @@
     let cachedCandlesArray = [];
 
     // Indicator Visibilities
-    const activeIndicators = { ma7: true, ma25: false, bb: false, rsi: false };
+    const activeIndicators = { ma7: true, ma25: false, ema12: false, ema26: false, vwap: false, bb: false, rsi: false, macd: false };
 
     // ---------- Socket watchdog (heartbeat) ----------
     // Some WebSocket connections die silently — no close/error event ever fires (a proxy or
@@ -1185,6 +1208,92 @@
         return result;
     }
 
+    // ---------- EMA / VWAP / MACD / Heikin Ashi ----------
+    function calculateEMA(data, period) {
+        const result = [];
+        if (data.length < period) return result;
+        let sum = 0;
+        for (let i = 0; i < period; i++) sum += data[i].close;
+        let ema = sum / period;
+        result.push({ time: data[period - 1].time, value: ema });
+        const k = 2 / (period + 1);
+        for (let i = period; i < data.length; i++) {
+            ema = data[i].close * k + ema * (1 - k);
+            result.push({ time: data[i].time, value: ema });
+        }
+        return result;
+    }
+
+    function calculateVWAP(data) {
+        const result = [];
+        let cumPV = 0, cumVol = 0;
+        data.forEach(c => {
+            const typical = (c.high + c.low + c.close) / 3;
+            cumPV += typical * c.volume;
+            cumVol += c.volume;
+            result.push({ time: c.time, value: cumVol > 0 ? cumPV / cumVol : typical });
+        });
+        return result;
+    }
+
+    // Index-aligned EMA over a plain number array — used internally by MACD so the fast/slow/
+    // signal lines can be combined by array position without re-deriving time lookups.
+    function emaSeriesAligned(values, period) {
+        const out = new Array(values.length).fill(null);
+        if (values.length < period) return out;
+        let sum = 0;
+        for (let i = 0; i < period; i++) sum += values[i];
+        let ema = sum / period;
+        out[period - 1] = ema;
+        const k = 2 / (period + 1);
+        for (let i = period; i < values.length; i++) {
+            ema = values[i] * k + ema * (1 - k);
+            out[i] = ema;
+        }
+        return out;
+    }
+
+    function calculateMACD(data, fast = 12, slow = 26, signalPeriod = 9) {
+        const closes = data.map(c => c.close);
+        const emaFast = emaSeriesAligned(closes, fast);
+        const emaSlow = emaSeriesAligned(closes, slow);
+        const macdRaw = closes.map((_, i) => (emaFast[i] !== null && emaSlow[i] !== null) ? emaFast[i] - emaSlow[i] : null);
+
+        const macdValues = [];
+        const macdValueDataIdx = [];
+        macdRaw.forEach((v, i) => { if (v !== null) { macdValues.push(v); macdValueDataIdx.push(i); } });
+        const signalDense = emaSeriesAligned(macdValues, signalPeriod);
+
+        const macdLine = [], signalLine = [], histogram = [];
+        macdRaw.forEach((v, i) => { if (v !== null) macdLine.push({ time: data[i].time, value: v }); });
+        signalDense.forEach((v, j) => {
+            if (v === null) return;
+            const dataIdx = macdValueDataIdx[j];
+            signalLine.push({ time: data[dataIdx].time, value: v });
+            const hist = macdRaw[dataIdx] - v;
+            histogram.push({ time: data[dataIdx].time, value: hist, color: hist >= 0 ? 'rgba(14, 203, 129, 0.6)' : 'rgba(246, 70, 93, 0.6)' });
+        });
+        return { macdLine, signalLine, histogram };
+    }
+
+    // Heikin Ashi candles are derived from real OHLC but smooth out noise. Indicators (MA/RSI/
+    // MACD/etc.) still compute off the real cachedCandlesArray, matching how Binance's chart
+    // behaves — only the candle body rendering changes, not the underlying math.
+    function computeHeikinAshiSeries(candles) {
+        const result = [];
+        let prevHA = null;
+        candles.forEach(c => {
+            const haClose = (c.open + c.high + c.low + c.close) / 4;
+            const haOpen = prevHA ? (prevHA.open + prevHA.close) / 2 : (c.open + c.close) / 2;
+            const haHigh = Math.max(c.high, haOpen, haClose);
+            const haLow = Math.min(c.low, haOpen, haClose);
+            const ha = { time: c.time, open: haOpen, high: haHigh, low: haLow, close: haClose };
+            result.push(ha);
+            prevHA = ha;
+        });
+        return result;
+    }
+
     // Shared by both the WebSocket kline handler and the REST polling fallback below, so a
     // live candle update always looks identical no matter which transport delivered it.
     function applyLiveCandle(liveCandle) {
@@ -1202,6 +1311,13 @@
         } else {
             cachedCandlesArray.push(liveCandle);
             if (cachedCandlesArray.length > 400) cachedCandlesArray.shift();
+        }
+
+        // Recompute the (cheap, <=400 candle) Heikin Ashi series so the current bar reflects the
+        // live update; historical HA bars are deterministic from raw OHLC so recompute is safe.
+        haCandlesArray = computeHeikinAshiSeries(cachedCandlesArray);
+        if (currentChartType === 'heikinashi' && candlestickSeries && haCandlesArray.length) {
+            candlestickSeries.update(haCandlesArray[haCandlesArray.length - 1]);
         }
 
         updateIndicatorsData();
@@ -1362,6 +1478,7 @@
                 close: parseFloat(d[4]),
                 volume: parseFloat(d[5])
             }));
+            haCandlesArray = computeHeikinAshiSeries(cachedCandlesArray);
 
             if (chartInstance) {
                 if (resizeObserver) resizeObserver.disconnect();
@@ -1369,6 +1486,7 @@
                 chartInstance = null;
             }
             if (rsiChartInstance) { rsiChartInstance.remove(); rsiChartInstance = null; }
+            if (macdChartInstance) { macdChartInstance.remove(); macdChartInstance = null; }
 
             container.innerHTML = '';
             ohlvLegend.classList.remove('hidden');
@@ -1381,17 +1499,18 @@
                     vertLine: { labelBackgroundColor: '#474d57', color: '#5e6673', style: 3 },
                     horzLine: { labelBackgroundColor: '#474d57', color: '#5e6673', style: 3 },
                 },
-                rightPriceScale: { borderColor: '#2b2f3a', autoScale: true },
+                rightPriceScale: { borderColor: '#2b2f3a', autoScale: true, mode: isLogScale ? LightweightCharts.PriceScaleMode.Logarithmic : LightweightCharts.PriceScaleMode.Normal },
                 leftPriceScale: { borderColor: '#2b2f3a', visible: false },
                 timeScale: { borderColor: '#2b2f3a', timeVisible: true },
+                watermark: { visible: true, text: selectedAsset.symbol, fontSize: 42, color: 'rgba(255,255,255,0.045)', horzAlign: 'center', vertAlign: 'center' },
             });
 
             candlestickSeries = chartInstance.addCandlestickSeries({
                 upColor: '#0ecb81', downColor: '#f6465d', borderVisible: false,
                 wickUpColor: '#0ecb81', wickDownColor: '#f6465d',
-                visible: currentChartType === 'candles'
+                visible: currentChartType === 'candles' || currentChartType === 'heikinashi'
             });
-            candlestickSeries.setData(cachedCandlesArray);
+            candlestickSeries.setData(currentChartType === 'heikinashi' ? haCandlesArray : cachedCandlesArray);
 
             lineSeries = chartInstance.addLineSeries({
                 color: '#0ecb81', lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: true,
@@ -1402,6 +1521,9 @@
             // Tech Overlays Integration Pipeline
             ma7Series = chartInstance.addLineSeries({ color: '#e5b324', lineWidth: 1.5, title: 'MA(7)', priceLineVisible: false, crosshairMarkerVisible: false });
             ma25Series = chartInstance.addLineSeries({ color: '#24a0e5', lineWidth: 1.5, title: 'MA(25)', priceLineVisible: false, crosshairMarkerVisible: false });
+            ema12Series = chartInstance.addLineSeries({ color: '#ec4899', lineWidth: 1.5, title: 'EMA(12)', priceLineVisible: false, crosshairMarkerVisible: false });
+            ema26Series = chartInstance.addLineSeries({ color: '#22d3ee', lineWidth: 1.5, title: 'EMA(26)', priceLineVisible: false, crosshairMarkerVisible: false });
+            vwapSeries = chartInstance.addLineSeries({ color: '#fbbf24', lineWidth: 1.5, lineStyle: 2, title: 'VWAP', priceLineVisible: false, crosshairMarkerVisible: false });
             
             bbUpperSeries = chartInstance.addLineSeries({ color: 'rgba(168, 85, 247, 0.6)', lineWidth: 1, title: 'BB Upper', priceLineVisible: false, crosshairMarkerVisible: false });
             bbBasisSeries = chartInstance.addLineSeries({ color: 'rgba(168, 85, 247, 0.3)', lineWidth: 1, lineStyle: 2, title: 'BB Basis', priceLineVisible: false, crosshairMarkerVisible: false });
@@ -1419,6 +1541,7 @@
             })));
 
             setupRSIPanel();
+            setupMACDPanel();
             updateIndicatorsData();
 
             updateLegendText(cachedCandlesArray[cachedCandlesArray.length - 1]);
@@ -1440,9 +1563,10 @@
             chartInstance.timeScale().fitContent();
 
             chartInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
-                if (syncingRange || !rsiChartInstance || !range) return;
+                if (syncingRange || !range) return;
                 syncingRange = true;
-                rsiChartInstance.timeScale().setVisibleLogicalRange(range);
+                if (rsiChartInstance) rsiChartInstance.timeScale().setVisibleLogicalRange(range);
+                if (macdChartInstance) macdChartInstance.timeScale().setVisibleLogicalRange(range);
                 syncingRange = false;
             });
             
@@ -1450,6 +1574,7 @@
                 if (chartInstance && entries[0].contentRect.width > 0) {
                     chartInstance.resize(entries[0].contentRect.width, 400);
                     if (rsiChartInstance) rsiChartInstance.resize(entries[0].contentRect.width, 110);
+                    if (macdChartInstance) macdChartInstance.resize(entries[0].contentRect.width, 110);
                 }
             });
             resizeObserver.observe(container);
@@ -1492,6 +1617,33 @@
         });
     }
 
+    function setupMACDPanel() {
+        const macdPanel = document.getElementById('macd-panel');
+        const macdWorkspace = document.getElementById('macd-workspace');
+        if (!activeIndicators.macd) { macdPanel.classList.add('hidden'); return; }
+        macdPanel.classList.remove('hidden');
+        macdWorkspace.innerHTML = '';
+
+        macdChartInstance = LightweightCharts.createChart(macdWorkspace, {
+            layout: { background: { color: '#181a20' }, textColor: '#848e9c', fontSize: 10, fontFamily: 'monospace' },
+            grid: { vertLines: { color: '#2b2f3a' }, horzLines: { color: '#2b2f3a' } },
+            rightPriceScale: { borderColor: '#2b2f3a' },
+            timeScale: { borderColor: '#2b2f3a', visible: true, timeVisible: true },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        });
+
+        macdHistSeries = macdChartInstance.addHistogramSeries({ priceLineVisible: false });
+        macdLineSeries = macdChartInstance.addLineSeries({ color: '#24a0e5', lineWidth: 1.5, priceLineVisible: false, crosshairMarkerVisible: false });
+        macdSignalSeries = macdChartInstance.addLineSeries({ color: '#e5b324', lineWidth: 1.5, priceLineVisible: false, crosshairMarkerVisible: false });
+
+        macdChartInstance.timeScale().subscribeVisibleLogicalRangeChange(range => {
+            if (syncingRange || !chartInstance || !range) return;
+            syncingRange = true;
+            chartInstance.timeScale().setVisibleLogicalRange(range);
+            syncingRange = false;
+        });
+    }
+
     function updateIndicatorsData() {
         if (!chartInstance) return;
         
@@ -1500,6 +1652,15 @@
 
         if (activeIndicators.ma25) ma25Series.setData(calculateSMA(cachedCandlesArray, 25));
         else ma25Series.setData([]);
+
+        if (activeIndicators.ema12) ema12Series.setData(calculateEMA(cachedCandlesArray, 12));
+        else ema12Series.setData([]);
+
+        if (activeIndicators.ema26) ema26Series.setData(calculateEMA(cachedCandlesArray, 26));
+        else ema26Series.setData([]);
+
+        if (activeIndicators.vwap) vwapSeries.setData(calculateVWAP(cachedCandlesArray));
+        else vwapSeries.setData([]);
 
         if (activeIndicators.bb) {
             const bb = calculateBollingerBands(cachedCandlesArray, 20, 2);
@@ -1514,6 +1675,13 @@
 
         if (activeIndicators.rsi && rsiLineSeries) {
             rsiLineSeries.setData(calculateRSI(cachedCandlesArray, 14));
+        }
+
+        if (activeIndicators.macd && macdLineSeries && cachedCandlesArray.length >= 35) {
+            const macd = calculateMACD(cachedCandlesArray, 12, 26, 9);
+            macdLineSeries.setData(macd.macdLine);
+            macdSignalSeries.setData(macd.signalLine);
+            macdHistSeries.setData(macd.histogram);
         }
     }
 
@@ -2333,7 +2501,10 @@ Last 30 closes: ${JSON.stringify(ctx.recentClosesTrend)}`;
             document.querySelectorAll('.ctype-btn').forEach(btn => btn.classList.remove('active'));
             e.target.classList.add('active');
             currentChartType = e.target.getAttribute('data-ctype');
-            if (candlestickSeries) candlestickSeries.applyOptions({ visible: currentChartType === 'candles' });
+            if (candlestickSeries) {
+                candlestickSeries.applyOptions({ visible: currentChartType === 'candles' || currentChartType === 'heikinashi' });
+                candlestickSeries.setData(currentChartType === 'heikinashi' ? haCandlesArray : cachedCandlesArray);
+            }
             if (lineSeries) lineSeries.applyOptions({ visible: currentChartType === 'line' });
         });
     });
@@ -2363,8 +2534,50 @@ Last 30 closes: ${JSON.stringify(ctx.recentClosesTrend)}`;
                     if (rsiChartInstance) rsiChartInstance.resize(container.clientWidth, 110);
                 }
             }
+            if (targetInd === 'macd') {
+                setupMACDPanel();
+                if (resizeObserver && container) {
+                    if (macdChartInstance) macdChartInstance.resize(container.clientWidth, 110);
+                }
+            }
             updateIndicatorsData();
         });
+    });
+
+    // ---------- Log scale / reset zoom / screenshot ----------
+    document.getElementById('logscale-toggle-btn').addEventListener('click', (e) => {
+        isLogScale = !isLogScale;
+        e.target.classList.toggle('active', isLogScale);
+        if (chartInstance) {
+            chartInstance.priceScale('right').applyOptions({
+                mode: isLogScale ? LightweightCharts.PriceScaleMode.Logarithmic : LightweightCharts.PriceScaleMode.Normal
+            });
+        }
+    });
+
+    document.getElementById('reset-zoom-btn').addEventListener('click', () => {
+        if (chartInstance) chartInstance.timeScale().fitContent();
+    });
+
+    document.getElementById('screenshot-btn').addEventListener('click', () => {
+        if (!chartInstance) { showToast('Select an asset first.', 'error'); return; }
+        try {
+            const canvas = chartInstance.takeScreenshot();
+            canvas.toBlob(blob => {
+                if (!blob) { showToast('Could not generate screenshot.', 'error'); return; }
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${selectedAsset ? selectedAsset.symbol : 'chart'}_${currentInterval}_${Date.now()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+                showToast('Chart image downloaded.', 'success');
+            });
+        } catch (e) {
+            showToast('Screenshot failed in this browser.', 'error');
+        }
     });
 
     searchInput.addEventListener('input', renderTableHTMLStructure);
