@@ -832,14 +832,19 @@
     }
 
     async function fetchWithTimeout(url, ms = 10000) {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), ms);
-        try {
-            return await fetch(url, { signal: controller.signal });
-        } finally {
-            clearTimeout(timer);
-        }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    try {
+        const targetUrl =
+            typeof url === 'string' && (url.startsWith('http://') || url.startsWith('https://'))
+                ? `/api/proxy?target=${encodeURIComponent(url)}`
+                : url;
+
+        return await fetch(targetUrl, { signal: controller.signal });
+    } finally {
+        clearTimeout(timer);
     }
+}
 
     async function parseBinanceJSON(res, label) {
         if (!res.ok) throw new Error(`${label} API responded with status ${res.status}`);
@@ -2658,23 +2663,22 @@ Last 30 closes: ${JSON.stringify(ctx.recentClosesTrend)}`;
         try {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), 20000);
-            const res = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json',
-                    'x-api-key': apiKey,
-                    'anthropic-version': '2023-06-01',
-                    // Required for calling the API directly from browser JS instead of a backend.
-                    'anthropic-dangerous-direct-browser-access': 'true'
-                },
-                body: JSON.stringify({
-                    model: 'claude-sonnet-4-6',
-                    max_tokens: 1000,
-                    system: systemPrompt,
-                    messages: [{ role: 'user', content: userPrompt }]
-                }),
-                signal: controller.signal
-            });
+           const res = await fetch(`/api/proxy?target=${encodeURIComponent('https://api.anthropic.com/v1/messages')}`, {
+    method: 'POST',
+    headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+    }),
+    signal: controller.signal
+});
             clearTimeout(timer);
 
             if (res.status === 401) throw new Error('Invalid API key — check the key you saved and try again.');
