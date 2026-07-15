@@ -398,6 +398,31 @@
             </div>
         </div>
 
+        <!-- Combined Account Summary -->
+        <div class="mt-6 bg-[#181a20] border border-gray-800 rounded-lg shadow-2xl overflow-hidden">
+            <div class="px-4 py-2.5 border-b border-gray-800 bg-[#1e222b]">
+                <span class="text-xs font-bold uppercase tracking-wider text-gray-400">💰 Account Summary</span>
+            </div>
+            <div class="px-6 py-3 flex items-center flex-wrap gap-8">
+                <div>
+                    <span class="text-[10px] text-gray-500 block uppercase font-bold">Spot Value</span>
+                    <span id="summary-spot-value" class="text-sm font-mono font-bold text-gray-300">$0.00</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-gray-500 block uppercase font-bold">Futures Margin</span>
+                    <span id="summary-futures-margin" class="text-sm font-mono font-bold text-gray-300">$0.00</span>
+                </div>
+                <div>
+                    <span class="text-[10px] text-gray-500 block uppercase font-bold">Futures P&amp;L</span>
+                    <span id="summary-futures-pnl" class="text-sm font-mono font-bold text-gray-400">$0.00</span>
+                </div>
+                <div class="ml-auto text-right">
+                    <span class="text-[10px] text-gray-500 block uppercase font-bold">Net Account Value</span>
+                    <span id="summary-net-value" class="text-lg font-mono font-bold text-white">$0.00</span>
+                </div>
+            </div>
+        </div>
+
         <!-- Portfolio Tracker -->
         <div class="mt-6 bg-[#181a20] border border-gray-800 rounded-lg shadow-2xl overflow-hidden">
             <div class="px-4 py-3 border-b border-gray-800 bg-[#1e222b] flex justify-between items-center flex-wrap gap-3">
@@ -411,17 +436,28 @@
                         <span class="text-[9px] text-gray-500 block uppercase font-bold">Unrealized P&amp;L</span>
                         <span id="portfolio-total-pnl" class="text-sm font-mono font-bold text-gray-400">$0.00</span>
                     </div>
+                    <button id="portfolio-csv-btn" title="Export holdings to CSV" class="text-[10px] px-2 py-1 rounded bg-gray-900 border border-gray-800 text-gray-400 hover:text-[#0ecb81] hover:border-[#0ecb81]/40 transition-all cursor-pointer">⭳ CSV</button>
                 </div>
             </div>
 
-            <div class="p-3 flex flex-wrap gap-2 border-b border-gray-800 bg-[#14161c]">
+            <div class="p-3 flex flex-wrap items-center gap-2 border-b border-gray-800 bg-[#14161c]">
                 <input id="holding-symbol-input" type="text" placeholder="Asset e.g. BTC" list="holding-symbol-list"
-                    class="w-32 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81]">
+                    class="w-28 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81]">
                 <datalist id="holding-symbol-list"></datalist>
-                <input id="holding-qty-input" type="number" step="any" placeholder="Quantity held"
-                    class="w-32 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81]">
-                <input id="holding-cost-input" type="number" step="any" placeholder="Avg cost / unit (optional)"
-                    class="w-44 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81]">
+                <div class="flex items-center gap-1">
+                    <input id="holding-qty-input" type="number" step="any" placeholder="Amount"
+                        class="w-24 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81]">
+                    <select id="holding-qty-unit" class="bg-gray-900 border border-gray-800 rounded text-[11px] px-1.5 py-1.5 text-gray-300 focus:outline-none focus:border-[#0ecb81]">
+                        <option value="coins">Coins</option>
+                        <option value="usdt">USDT</option>
+                    </select>
+                </div>
+                <span id="holding-qty-hint" class="text-[10px] text-gray-500 font-mono min-w-[90px]"></span>
+                <div class="flex items-center gap-1">
+                    <input id="holding-cost-input" type="number" step="any" placeholder="Avg cost / unit (optional)"
+                        class="w-36 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#0ecb81]">
+                    <button id="holding-uselive-btn" title="Fill with current price" class="text-[10px] px-2 py-1.5 rounded bg-gray-900 border border-gray-800 text-gray-400 hover:text-[#0ecb81] transition-all cursor-pointer">Live</button>
+                </div>
                 <button id="holding-add-btn" class="text-[11px] px-3 py-1.5 rounded bg-[#0ecb81] text-[#0b0e11] font-bold hover:opacity-90 transition-all cursor-pointer">Add Holding</button>
             </div>
 
@@ -458,23 +494,36 @@
                         <span class="text-[9px] text-gray-500 block uppercase font-bold">Unrealized P&amp;L</span>
                         <span id="futures-total-pnl" class="text-sm font-mono font-bold text-gray-400">$0.00</span>
                     </div>
+                    <button id="futures-csv-btn" title="Export positions to CSV" class="text-[10px] px-2 py-1 rounded bg-gray-900 border border-gray-800 text-gray-400 hover:text-amber-400 hover:border-amber-500/40 transition-all cursor-pointer">⭳ CSV</button>
                 </div>
             </div>
 
-            <div class="p-3 flex flex-wrap gap-2 border-b border-gray-800 bg-[#14161c]">
+            <div class="p-3 flex flex-wrap items-center gap-2 border-b border-gray-800 bg-[#14161c]">
                 <input id="futures-symbol-input" type="text" placeholder="Asset e.g. BTC" list="futures-symbol-list"
-                    class="w-28 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500">
+                    class="w-24 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500">
                 <datalist id="futures-symbol-list"></datalist>
                 <select id="futures-side-input" class="bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 focus:outline-none focus:border-amber-500">
                     <option value="long">Long</option>
                     <option value="short">Short</option>
                 </select>
-                <input id="futures-entry-input" type="number" step="any" placeholder="Entry price"
-                    class="w-28 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500">
-                <input id="futures-qty-input" type="number" step="any" placeholder="Quantity"
-                    class="w-24 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500">
+                <div class="flex items-center gap-1">
+                    <input id="futures-entry-input" type="number" step="any" placeholder="Entry price"
+                        class="w-24 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500">
+                    <button id="futures-uselive-btn" title="Fill with current price" class="text-[10px] px-2 py-1.5 rounded bg-gray-900 border border-gray-800 text-gray-400 hover:text-amber-400 transition-all cursor-pointer">Live</button>
+                </div>
+                <div class="flex items-center gap-1">
+                    <input id="futures-qty-input" type="number" step="any" placeholder="Amount"
+                        class="w-20 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500">
+                    <select id="futures-qty-unit" class="bg-gray-900 border border-gray-800 rounded text-[11px] px-1.5 py-1.5 text-gray-300 focus:outline-none focus:border-amber-500">
+                        <option value="coins">Coins</option>
+                        <option value="usdt">USDT</option>
+                    </select>
+                </div>
+                <span id="futures-qty-hint" class="text-[10px] text-gray-500 font-mono min-w-[90px]"></span>
                 <input id="futures-leverage-input" type="number" step="1" min="1" max="125" placeholder="Leverage (x)" value="10"
-                    class="w-28 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500">
+                    class="w-20 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500">
+                <input id="futures-sl-input" type="number" step="any" placeholder="Stop-loss (optional)"
+                    class="w-32 bg-gray-900 border border-gray-800 rounded text-[11px] px-2 py-1.5 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-amber-500">
                 <button id="futures-add-btn" class="text-[11px] px-3 py-1.5 rounded bg-amber-500 text-[#0b0e11] font-bold hover:opacity-90 transition-all cursor-pointer">Add Position</button>
             </div>
 
@@ -490,12 +539,13 @@
                             <th class="py-2 px-3 text-right">Margin</th>
                             <th class="py-2 px-3 text-right">Mark</th>
                             <th class="py-2 px-3 text-right">Liq. Est.</th>
+                            <th class="py-2 px-3 text-right">SL / Risk</th>
                             <th class="py-2 px-3 text-right">P&amp;L</th>
                             <th class="py-2 px-3 w-8"></th>
                         </tr>
                     </thead>
                     <tbody id="futures-rows" class="divide-y divide-gray-800/40 text-xs font-mono">
-                        <tr><td colspan="10" class="py-8 text-center text-gray-600 text-[11px]">No leveraged positions tracked yet.</td></tr>
+                        <tr><td colspan="11" class="py-8 text-center text-gray-600 text-[11px]">No leveraged positions tracked yet.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -2014,6 +2064,126 @@
         return marketMap[`${upper}USDT_S`] || marketMap[`${upper}USDT_F`] || null;
     }
 
+    // ---------- Combined account summary (spot + futures) ----------
+    function updateAccountSummary() {
+        let spotValue = 0;
+        holdings.forEach(h => {
+            const asset = findSpotAssetByBase(h.symbol);
+            if (asset) spotValue += asset.price * h.qty;
+        });
+
+        let futuresMargin = 0, futuresPnl = 0;
+        futuresPositions.forEach(p => {
+            const asset = findFuturesAssetByBase(p.symbol);
+            const margin = (p.entryPrice * p.qty) / p.leverage;
+            futuresMargin += margin;
+            if (asset) {
+                const pnl = p.side === 'long' ? (asset.price - p.entryPrice) * p.qty : (p.entryPrice - asset.price) * p.qty;
+                futuresPnl += pnl;
+            }
+        });
+
+        const netValue = spotValue + futuresMargin + futuresPnl;
+        document.getElementById('summary-spot-value').innerText = `$${spotValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+        document.getElementById('summary-futures-margin').innerText = `$${futuresMargin.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+        const fPnlEl = document.getElementById('summary-futures-pnl');
+        fPnlEl.innerText = `${futuresPnl >= 0 ? '+' : ''}$${futuresPnl.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+        fPnlEl.className = `text-sm font-mono font-bold ${futuresPnl >= 0 ? 'text-[#0ecb81]' : 'text-[#f6465d]'}`;
+        document.getElementById('summary-net-value').innerText = `$${netValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    }
+
+    // ---------- Live conversion hints (Coins <-> USDT) ----------
+    function refreshHoldingQtyHint() {
+        const hint = document.getElementById('holding-qty-hint');
+        const symbol = document.getElementById('holding-symbol-input').value.toUpperCase().trim();
+        const unit = document.getElementById('holding-qty-unit').value;
+        const raw = parseFloat(document.getElementById('holding-qty-input').value);
+        const asset = findSpotAssetByBase(symbol);
+        if (!asset || isNaN(raw) || raw <= 0) { hint.innerText = ''; return; }
+        hint.innerText = unit === 'usdt'
+            ? `≈ ${(raw / asset.price).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${symbol}`
+            : `≈ $${(raw * asset.price).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+    }
+    ['holding-symbol-input', 'holding-qty-input', 'holding-qty-unit'].forEach(id => {
+        document.getElementById(id).addEventListener('input', refreshHoldingQtyHint);
+        document.getElementById(id).addEventListener('change', refreshHoldingQtyHint);
+    });
+
+    document.getElementById('holding-uselive-btn').addEventListener('click', () => {
+        const symbol = document.getElementById('holding-symbol-input').value.toUpperCase().trim();
+        const asset = findSpotAssetByBase(symbol);
+        if (!asset) { showToast(`Enter a tracked symbol first, e.g. BTC.`, 'error'); return; }
+        document.getElementById('holding-cost-input').value = asset.price;
+        refreshHoldingQtyHint();
+    });
+
+    function refreshFuturesQtyHint() {
+        const hint = document.getElementById('futures-qty-hint');
+        const unit = document.getElementById('futures-qty-unit').value;
+        const raw = parseFloat(document.getElementById('futures-qty-input').value);
+        const entryPrice = parseFloat(document.getElementById('futures-entry-input').value);
+        const symbol = document.getElementById('futures-symbol-input').value.toUpperCase().trim();
+        if (isNaN(raw) || raw <= 0 || isNaN(entryPrice) || entryPrice <= 0) { hint.innerText = ''; return; }
+        hint.innerText = unit === 'usdt'
+            ? `≈ ${(raw / entryPrice).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${symbol || 'coins'}`
+            : `≈ $${(raw * entryPrice).toLocaleString(undefined, { maximumFractionDigits: 2 })} notional`;
+    }
+    ['futures-symbol-input', 'futures-qty-input', 'futures-qty-unit', 'futures-entry-input'].forEach(id => {
+        document.getElementById(id).addEventListener('input', refreshFuturesQtyHint);
+        document.getElementById(id).addEventListener('change', refreshFuturesQtyHint);
+    });
+
+    document.getElementById('futures-uselive-btn').addEventListener('click', () => {
+        const symbol = document.getElementById('futures-symbol-input').value.toUpperCase().trim();
+        const asset = findFuturesAssetByBase(symbol);
+        if (!asset) { showToast(`Enter a tracked futures symbol first, e.g. BTC.`, 'error'); return; }
+        document.getElementById('futures-entry-input').value = asset.price;
+        refreshFuturesQtyHint();
+    });
+
+    // ---------- CSV export (portfolio + futures) ----------
+    function exportPortfolioToCSV() {
+        if (holdings.length === 0) { showToast('No holdings to export.', 'error'); return; }
+        const lines = [['Asset', 'Qty', 'AvgCost', 'Price', 'Value', 'PnL'].join(',')];
+        holdings.forEach(h => {
+            const asset = findSpotAssetByBase(h.symbol);
+            const price = asset ? asset.price : 0;
+            const value = price * h.qty;
+            const pnl = h.avgCost ? (value - h.avgCost * h.qty) : '';
+            lines.push([h.symbol, h.qty, h.avgCost || '', price || '', value.toFixed(2), pnl === '' ? '' : pnl.toFixed(2)].join(','));
+        });
+        downloadCSV(lines.join('\n'), `portfolio_holdings_${Date.now()}.csv`);
+    }
+    document.getElementById('portfolio-csv-btn').addEventListener('click', exportPortfolioToCSV);
+
+    function exportFuturesToCSV() {
+        if (futuresPositions.length === 0) { showToast('No positions to export.', 'error'); return; }
+        const lines = [['Asset', 'Side', 'Entry', 'Qty', 'Leverage', 'Margin', 'Mark', 'LiqEst', 'StopLoss', 'PnL'].join(',')];
+        futuresPositions.forEach(p => {
+            const asset = findFuturesAssetByBase(p.symbol);
+            const mark = asset ? asset.price : '';
+            const margin = (p.entryPrice * p.qty) / p.leverage;
+            const liq = p.side === 'long' ? p.entryPrice * (1 - 1 / p.leverage) : p.entryPrice * (1 + 1 / p.leverage);
+            const pnl = asset ? (p.side === 'long' ? (asset.price - p.entryPrice) * p.qty : (p.entryPrice - asset.price) * p.qty) : '';
+            lines.push([p.symbol, p.side, p.entryPrice, p.qty, p.leverage, margin.toFixed(2), mark, liq.toFixed(6), p.stopLoss || '', pnl === '' ? '' : pnl.toFixed(2)].join(','));
+        });
+        downloadCSV(lines.join('\n'), `futures_positions_${Date.now()}.csv`);
+    }
+    document.getElementById('futures-csv-btn').addEventListener('click', exportFuturesToCSV);
+
+    function downloadCSV(csvText, filename) {
+        const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        showToast(`Exported to ${filename}`, 'success');
+    }
+
     function renderPortfolio() {
         const tbody = document.getElementById('portfolio-rows');
         if (!tbody) return;
@@ -2024,6 +2194,7 @@
             const pnlEl = document.getElementById('portfolio-total-pnl');
             pnlEl.innerText = '$0.00';
             pnlEl.className = 'text-sm font-mono font-bold text-gray-400';
+            updateAccountSummary();
             return;
         }
 
@@ -2047,7 +2218,7 @@
             return `
                 <tr class="hover:bg-gray-800/40 transition-colors">
                     <td class="py-2 px-3 font-bold text-white">${h.symbol}${!asset ? ' <span class=\"text-[9px] text-gray-600\">(unlisted)</span>' : ''}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">${h.qty}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">${h.qty.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
                     <td class="py-2 px-3 text-right text-gray-500">${h.avgCost ? '$' + h.avgCost : '--'}</td>
                     <td class="py-2 px-3 text-right text-gray-300">${price ? '$' + price.toLocaleString(undefined, priceFmt(price)) : '--'}</td>
                     <td class="py-2 px-3 text-right text-white font-bold">$${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
@@ -2076,19 +2247,32 @@
                 renderPortfolio();
             });
         });
+
+        updateAccountSummary();
     }
 
     document.getElementById('holding-add-btn').addEventListener('click', () => {
         const symbolInput = document.getElementById('holding-symbol-input');
         const qtyInput = document.getElementById('holding-qty-input');
+        const unitInput = document.getElementById('holding-qty-unit');
         const costInput = document.getElementById('holding-cost-input');
         const symbol = symbolInput.value.toUpperCase().trim();
-        const qty = parseFloat(qtyInput.value);
+        const rawQty = parseFloat(qtyInput.value);
+        const unit = unitInput.value;
         const avgCost = parseFloat(costInput.value);
 
         if (!symbol) { showToast('Enter an asset symbol, e.g. BTC.', 'error'); return; }
-        if (isNaN(qty) || qty <= 0) { showToast('Enter a valid quantity.', 'error'); return; }
-        if (!findSpotAssetByBase(symbol)) { showToast(`${symbol} isn't a tracked USDT market.`, 'error'); return; }
+        if (isNaN(rawQty) || rawQty <= 0) { showToast('Enter a valid amount.', 'error'); return; }
+        const marketAsset = findSpotAssetByBase(symbol);
+        if (!marketAsset) { showToast(`${symbol} isn't a tracked USDT market.`, 'error'); return; }
+
+        // USDT mode always converts off the LIVE price (not avg cost) — "I have $500 of BTC
+        // right now" is a statement about current holdings, independent of what was paid for it.
+        let qty = rawQty;
+        if (unit === 'usdt') {
+            if (marketAsset.price <= 0) { showToast('No live price available to convert from USDT yet.', 'error'); return; }
+            qty = rawQty / marketAsset.price;
+        }
 
         holdings.push({
             id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -2096,9 +2280,10 @@
             avgCost: !isNaN(avgCost) && avgCost > 0 ? avgCost : null
         });
         localStorage.setItem('cw_holdings', JSON.stringify(holdings));
-        symbolInput.value = ''; qtyInput.value = ''; costInput.value = '';
+        symbolInput.value = ''; qtyInput.value = ''; costInput.value = ''; unitInput.value = 'coins';
+        document.getElementById('holding-qty-hint').innerText = '';
         renderPortfolio();
-        showToast(`Added ${qty} ${symbol} to portfolio.`, 'success');
+        showToast(`Added ${qty.toLocaleString(undefined, { maximumFractionDigits: 6 })} ${symbol} to portfolio.`, 'success');
     });
 
     // ---------- Futures positions (leverage) tracker ----------
@@ -2111,11 +2296,12 @@
         if (!tbody) return;
 
         if (futuresPositions.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="10" class="py-8 text-center text-gray-600 text-[11px]">No leveraged positions tracked yet.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="11" class="py-8 text-center text-gray-600 text-[11px]">No leveraged positions tracked yet.</td></tr>`;
             document.getElementById('futures-total-margin').innerText = '$0.00';
             const pnlEl = document.getElementById('futures-total-pnl');
             pnlEl.innerText = '$0.00';
             pnlEl.className = 'text-sm font-mono font-bold text-gray-400';
+            updateAccountSummary();
             return;
         }
 
@@ -2144,6 +2330,17 @@
                 markHtml = `$${mark.toLocaleString(undefined, priceFmt(mark))}`;
             }
 
+            // Stop-loss risk: how much is lost (in $ and % of margin) if the stop is hit, plus a
+            // warning if the stop sits on the wrong side of the liquidation price — meaning
+            // liquidation would trigger first and the stop would never actually execute.
+            let slHtml = '<span class="text-gray-600">--</span>';
+            if (p.stopLoss) {
+                const risk = p.side === 'long' ? (p.entryPrice - p.stopLoss) * p.qty : (p.stopLoss - p.entryPrice) * p.qty;
+                const riskPct = margin > 0 ? (risk / margin) * 100 : 0;
+                const beyondLiq = p.side === 'long' ? p.stopLoss < liqPrice : p.stopLoss > liqPrice;
+                slHtml = `<span class="text-gray-400">$${p.stopLoss.toLocaleString(undefined, priceFmt(p.stopLoss))}</span><br><span class="text-[10px] ${risk >= 0 ? 'text-[#f6465d]' : 'text-[#0ecb81]'}">${risk >= 0 ? '-' : '+'}$${Math.abs(risk).toLocaleString(undefined, { maximumFractionDigits: 2 })} (${riskPct.toFixed(1)}%)</span>${beyondLiq ? '<br><span class="text-[9px] text-amber-400">⚠ past liq.</span>' : ''}`;
+            }
+
             const sideColor = p.side === 'long' ? 'text-[#0ecb81] bg-[#0ecb81]/10 border-[#0ecb81]/30' : 'text-[#f6465d] bg-[#f6465d]/10 border-[#f6465d]/30';
 
             return `
@@ -2151,11 +2348,12 @@
                     <td class="py-2 px-3 font-bold text-white">${p.symbol}${!asset ? ' <span class=\"text-[9px] text-gray-600\">(unlisted)</span>' : ''}</td>
                     <td class="py-2 px-3"><span class="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded border ${sideColor}">${p.side}</span></td>
                     <td class="py-2 px-3 text-right text-gray-300">$${p.entryPrice.toLocaleString(undefined, priceFmt(p.entryPrice))}</td>
-                    <td class="py-2 px-3 text-right text-gray-300">${p.qty}</td>
+                    <td class="py-2 px-3 text-right text-gray-300">${p.qty.toLocaleString(undefined, { maximumFractionDigits: 6 })}</td>
                     <td class="py-2 px-3 text-right text-amber-400 font-bold">${p.leverage}x</td>
                     <td class="py-2 px-3 text-right text-gray-300">$${margin.toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
                     <td class="py-2 px-3 text-right text-gray-300">${markHtml}</td>
                     <td class="py-2 px-3 text-right text-gray-500">$${liqPrice.toLocaleString(undefined, priceFmt(liqPrice))}</td>
+                    <td class="py-2 px-3 text-right leading-tight">${slHtml}</td>
                     <td class="py-2 px-3 text-right">${pnlHtml}</td>
                     <td class="py-2 px-3 text-center"><button class="text-gray-500 hover:text-[#f6465d] cursor-pointer futures-remove" data-id="${p.id}">✕</button></td>
                 </tr>
@@ -2174,6 +2372,8 @@
                 renderFuturesPositions();
             });
         });
+
+        updateAccountSummary();
     }
 
     document.getElementById('futures-add-btn').addEventListener('click', () => {
@@ -2181,26 +2381,41 @@
         const sideInput = document.getElementById('futures-side-input');
         const entryInput = document.getElementById('futures-entry-input');
         const qtyInput = document.getElementById('futures-qty-input');
+        const unitInput = document.getElementById('futures-qty-unit');
         const leverageInput = document.getElementById('futures-leverage-input');
+        const slInput = document.getElementById('futures-sl-input');
 
         const symbol = symbolInput.value.toUpperCase().trim();
         const side = sideInput.value;
         const entryPrice = parseFloat(entryInput.value);
-        const qty = parseFloat(qtyInput.value);
+        const rawQty = parseFloat(qtyInput.value);
+        const unit = unitInput.value;
         const leverage = parseInt(leverageInput.value, 10);
+        const stopLoss = parseFloat(slInput.value);
 
         if (!symbol) { showToast('Enter an asset symbol, e.g. BTC.', 'error'); return; }
         if (!findFuturesAssetByBase(symbol)) { showToast(`${symbol} isn't a tracked USDT-M futures market.`, 'error'); return; }
         if (isNaN(entryPrice) || entryPrice <= 0) { showToast('Enter a valid entry price.', 'error'); return; }
-        if (isNaN(qty) || qty <= 0) { showToast('Enter a valid quantity.', 'error'); return; }
+        if (isNaN(rawQty) || rawQty <= 0) { showToast('Enter a valid amount.', 'error'); return; }
         if (isNaN(leverage) || leverage < 1 || leverage > 125) { showToast('Leverage must be between 1x and 125x.', 'error'); return; }
+
+        // USDT mode here means notional position size (standard futures UX): $1,000 position at
+        // entry $50,000 = 0.02 coins — converted using entry price since that's the position basis.
+        const qty = unit === 'usdt' ? rawQty / entryPrice : rawQty;
+
+        if (!isNaN(stopLoss) && stopLoss > 0) {
+            const wrongSide = side === 'long' ? stopLoss >= entryPrice : stopLoss <= entryPrice;
+            if (wrongSide) { showToast(`Stop-loss should be ${side === 'long' ? 'below' : 'above'} entry price for a ${side} position.`, 'error'); return; }
+        }
 
         futuresPositions.push({
             id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-            symbol, side, entryPrice, qty, leverage
+            symbol, side, entryPrice, qty, leverage,
+            stopLoss: !isNaN(stopLoss) && stopLoss > 0 ? stopLoss : null
         });
         localStorage.setItem('cw_futures_positions', JSON.stringify(futuresPositions));
-        symbolInput.value = ''; entryInput.value = ''; qtyInput.value = ''; leverageInput.value = '10';
+        symbolInput.value = ''; entryInput.value = ''; qtyInput.value = ''; leverageInput.value = '10'; slInput.value = ''; unitInput.value = 'coins';
+        document.getElementById('futures-qty-hint').innerText = '';
         renderFuturesPositions();
         showToast(`Added ${leverage}x ${side} ${symbol} position.`, 'success');
     });
